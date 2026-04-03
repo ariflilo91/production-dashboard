@@ -186,7 +186,7 @@ function TaskModal({ modal, departments, episodes, onSave, onDelete, onClose }: 
   const [deptId, setDeptId]   = useState(task?.department_id || modal.deptId || departments[0]?.id || '')
   const [epId, setEpId]       = useState(task?.episode_id || episodes[0]?.id || '')
   const [stage, setStage]     = useState(task?.stage_code || '')
-  const [status, setStatus]   = useState(task?.status || 'upcoming')
+  const [status, setStatus]   = useState<Task['status']>(task?.status || 'upcoming')
   const [startDate, setStart] = useState(task?.start_date || '')
   const [endDate, setEnd]     = useState(task?.end_date || '')
   const [saving, setSaving]   = useState(false)
@@ -238,7 +238,7 @@ function TaskModal({ modal, departments, episodes, onSave, onDelete, onClose }: 
         </select>
 
         <label style={lbl}>Status</label>
-        <select value={status} onChange={e => setStatus(e.target.value)} style={{ ...modalInp, marginBottom: 12 }}>
+        <select value={status} onChange={e => setStatus(e.target.value as Task['status'])} style={{ ...modalInp, marginBottom: 12 }}>
           {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
 
