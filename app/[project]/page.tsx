@@ -22,13 +22,14 @@ const GROUPS = [
   { label: 'Post-production', depts: ['Render', 'Comp'] },
 ]
 
+// Fix 1: Upcoming is now a visible warm gray-blue, all bars readable
 const BAR: Record<string, React.CSSProperties> = {
   done:     { background: '#0a1e0a', color: '#97C459', border: '1px solid #183018' },
   wip:      { background: '#071828', color: '#85B7EB', border: '1px solid #0d2a48' },
   review:   { background: '#1e1408', color: '#FBCA75', border: '1px solid #3a2808' },
   overdue:  { background: '#1e0808', color: '#F09595', border: '1px solid #3a1010' },
   risk:     { background: '#1e1408', color: '#FBCA75', border: '1.5px solid #F09595' },
-  upcoming: { background: '#161614', color: '#555552', border: '1px solid #252523' },
+  upcoming: { background: '#1a1a2e', color: '#9b9bc8', border: '1px solid #2a2a52' }, // Fix 1: more visible
 }
 
 const inp: React.CSSProperties = {
@@ -53,11 +54,11 @@ function HolidaysModal({ holidays, projectId, onAdd, onRemove, onClose }: {
   holidays: Holiday[]; projectId: string
   onAdd: (h: Holiday) => void; onRemove: (id: string) => void; onClose: () => void
 }) {
-  const [date, setDate]   = useState('')
-  const [name, setName]   = useState('')
-  const [type, setType]   = useState<'ph' | 'sl'>('ph')
+  const [date, setDate]     = useState('')
+  const [name, setName]     = useState('')
+  const [type, setType]     = useState<'ph' | 'sl'>('ph')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError]   = useState('')
 
   async function add() {
     if (!date || !name.trim()) { setError('Please fill in date and name.'); return }
@@ -65,7 +66,7 @@ function HolidaysModal({ holidays, projectId, onAdd, onRemove, onClose }: {
     try {
       const saved = await upsertHoliday({ project_id: projectId, date, name: name.trim(), type })
       onAdd(saved); setDate(''); setName(''); setError('')
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error adding holiday') }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error') }
     setSaving(false)
   }
 
@@ -75,12 +76,12 @@ function HolidaysModal({ holidays, projectId, onAdd, onRemove, onClose }: {
       <div style={{ background: '#161614', border: '1px solid #2a2a27', borderRadius: 14, padding: 24, width: '100%', maxWidth: 500, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 48px rgba(0,0,0,.6)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#e8e6df' }}>Holidays &amp; special leave</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888780', cursor: 'pointer', fontSize: 18, padding: '0 4px' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888780', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', marginBottom: 14 }}>
           {holidays.length === 0
             ? <div style={{ fontSize: 12, color: '#5F5E5A', padding: '16px 0', textAlign: 'center' }}>No holidays added yet.</div>
-            : holidays.map(h => (
+            : [...holidays].sort((a, b) => a.date.localeCompare(b.date)).map(h => (
               <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: '#111110', marginBottom: 5, borderLeft: `3px solid ${h.type === 'ph' ? '#854F0B' : '#534AB7'}` }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#c8c6bf', minWidth: 90 }}>
                   {new Date(h.date + 'T12:00:00').toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -89,7 +90,7 @@ function HolidaysModal({ holidays, projectId, onAdd, onRemove, onClose }: {
                 <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: h.type === 'ph' ? '#231a0a' : '#1a0a2a', color: h.type === 'ph' ? '#FBCA75' : '#AFA9EC', whiteSpace: 'nowrap' }}>
                   {h.type === 'ph' ? 'Public holiday' : 'Special leave'}
                 </span>
-                <button onClick={() => { deleteHoliday(h.id); onRemove(h.id) }} style={{ background: 'none', border: 'none', color: '#F09595', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>✕</button>
+                <button onClick={() => { deleteHoliday(h.id); onRemove(h.id) }} style={{ background: 'none', border: 'none', color: '#F09595', cursor: 'pointer', fontSize: 14 }}>✕</button>
               </div>
             ))
           }
@@ -119,10 +120,10 @@ function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
   episodes: Episode[]; projectId: string
   onAdd: (e: Episode) => void; onDelete: (id: string) => void; onClose: () => void
 }) {
-  const [newName, setNewName]   = useState('')
-  const [newDate, setNewDate]   = useState('')
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState('')
+  const [newName, setNewName] = useState('')
+  const [newDate, setNewDate] = useState('')
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState('')
 
   async function add() {
     if (!newName.trim()) { setError('Please enter an episode name.'); return }
@@ -130,7 +131,7 @@ function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
     try {
       const ep = await createEpisode(projectId, newName.trim(), newDate || undefined)
       onAdd(ep); setNewName(''); setNewDate(''); setError('')
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error adding episode') }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error') }
     setSaving(false)
   }
 
@@ -140,7 +141,7 @@ function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
       <div style={{ background: '#161614', border: '1px solid #2a2a27', borderRadius: 14, padding: 24, width: '100%', maxWidth: 440, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 48px rgba(0,0,0,.6)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#e8e6df' }}>Manage episodes</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888780', cursor: 'pointer', fontSize: 18, padding: '0 4px' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888780', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', marginBottom: 14 }}>
           {episodes.length === 0
@@ -153,7 +154,7 @@ function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
                   if (confirm(`Delete ${ep.name}? This will also delete all its tasks.`)) {
                     deleteEpisode(ep.id); onDelete(ep.id)
                   }
-                }} style={{ background: 'none', border: 'none', color: '#F09595', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>✕</button>
+                }} style={{ background: 'none', border: 'none', color: '#F09595', cursor: 'pointer', fontSize: 14 }}>✕</button>
               </div>
             ))
           }
@@ -202,7 +203,7 @@ function TaskModal({ modal, departments, episodes, onSave, onDelete, onClose }: 
     setSaving(true); setError('')
     try {
       await onSave({ id: task?.id, department_id: deptId, episode_id: epId, stage_code: stage, status, start_date: startDate, end_date: endDate })
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to save. Please try again.'); setSaving(false) }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to save.'); setSaving(false) }
   }
 
   async function remove() {
@@ -279,10 +280,12 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const [tasks, setTasks]               = useState<Task[]>([])
   const [holidays, setHolidays]         = useState<Holiday[]>([])
   const [loading, setLoading]           = useState(true)
-  const [viewStart, setViewStart]       = useState(new Date('2026-02-09T12:00:00'))
-  const [viewEnd, setViewEnd]           = useState(new Date('2026-05-22T12:00:00'))
+  // Fix 3: default range is Jan 2026 – Jan 2027
+  const [viewStart, setViewStart]       = useState(new Date('2026-01-01T12:00:00'))
+  const [viewEnd, setViewEnd]           = useState(new Date('2027-01-01T12:00:00'))
   const [filterDept, setFilterDept]     = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  // Fix 4: filter by episode instead of status
+  const [filterEp, setFilterEp]         = useState('')
   const [tooltip, setTooltip]           = useState<{ x: number; y: number; task: Task; dept: Department } | null>(null)
   const [modal, setModal]               = useState<{ type: 'edit' | 'add'; task?: Task; deptId?: string } | null>(null)
   const [showHolidays, setShowHolidays] = useState(false)
@@ -333,9 +336,10 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const todayI  = dayDiff(viewStart, today)
   const sidebarProjects = allProjects.map(p => ({ id: p.id, name: p.name, color: p.color }))
 
+  // Fix 4: filter by episode
   const filteredTasks = tasks.filter(t => {
     if (filterDept) { const d = departments.find(d => d.id === t.department_id); if (!d || d.name !== filterDept) return false }
-    if (filterStatus && t.status !== filterStatus) return false
+    if (filterEp && t.episode_id !== filterEp) return false
     return true
   })
 
@@ -350,6 +354,10 @@ export default function ProjectPage({ params }: { params: { project: string } })
     if (!months.length || months[months.length - 1].label !== lbl2) months.push({ label: lbl2, count: 1 })
     else months[months.length - 1].count++
   })
+
+  // Fix 5: holiday column helpers
+  const holidayMap: Record<string, Holiday> = {}
+  holidays.forEach(h => { holidayMap[h.date] = h })
 
   async function saveTask(data: Partial<Task>) {
     const saved = await upsertTask({ ...data, project_id: projectId } as Task & { project_id: string })
@@ -387,20 +395,21 @@ export default function ProjectPage({ params }: { params: { project: string } })
         />
 
         <div style={{ padding: '14px 20px', overflowY: 'auto', flex: 1 }}>
-          {/* Filters */}
+          {/* Fix 4: dept filter + episode filter (replacing status filter) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             <select value={filterDept} onChange={e => setFilterDept(e.target.value)} style={inp}>
               <option value="">All departments</option>
               {departments.map(d => <option key={d.id} value={d.name}>{d.full_name}</option>)}
             </select>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={inp}>
-              <option value="">All statuses</option>
-              {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            <select value={filterEp} onChange={e => setFilterEp(e.target.value)} style={inp}>
+              <option value="">All episodes</option>
+              {episodes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
             <div style={{ width: 1, height: 18, background: '#2a2a27' }} />
             <span style={{ fontSize: 11, color: '#888780' }}>From</span>
             <input type="date" value={formatDateInput(viewStart)} onChange={e => setViewStart(parseDate(e.target.value))} style={inp} />
             <span style={{ fontSize: 11, color: '#888780' }}>to</span>
+            {/* Fix 3: default end date shown as Jan 2027 */}
             <input type="date" value={formatDateInput(viewEnd)} onChange={e => setViewEnd(parseDate(e.target.value))} style={inp} />
           </div>
 
@@ -422,10 +431,10 @@ export default function ProjectPage({ params }: { params: { project: string } })
 
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 14 }}>
-            <StatCard label="Overdue"     value={ov} sub="past due"   color={ov > 0 ? 'red' : 'default'} />
-            <StatCard label="At risk"     value={rk} sub="need attn"  color={rk > 0 ? 'amber' : 'default'} />
-            <StatCard label="In progress" value={wp} sub="active"     color="blue" />
-            <StatCard label="Done"        value={dn} sub="completed"  color="green" />
+            <StatCard label="Overdue"     value={ov} sub="past due"  color={ov > 0 ? 'red' : 'default'} />
+            <StatCard label="At risk"     value={rk} sub="need attn" color={rk > 0 ? 'amber' : 'default'} />
+            <StatCard label="In progress" value={wp} sub="active"    color="blue" />
+            <StatCard label="Done"        value={dn} sub="completed" color="green" />
           </div>
 
           {/* Gantt */}
@@ -447,8 +456,22 @@ export default function ProjectPage({ params }: { params: { project: string } })
                     {days.map((day, i) => {
                       const off = isOffDay(day, holidays)
                       const isTd = i === todayI
+                      // Fix 5: holiday columns are orange-tinted with name tooltip
+                      const isHoliday = off.off && off.type === 'ph'
+                      const isLeave   = off.off && off.type === 'sl'
                       return (
-                        <th key={i} style={{ minWidth: COL_W, width: COL_W, textAlign: 'center', fontSize: 9, padding: '3px 1px', background: '#0e0e0c', borderRight: '1px solid #141412', borderBottom: '1px solid #222220', color: off.off && off.type === 'ph' ? '#854F0B' : isTd ? '#85B7EB' : off.off ? '#2a2a27' : '#555552', fontWeight: isTd ? 700 : 400 }} title={off.name ?? ''}>
+                        <th
+                          key={i}
+                          title={off.name ?? ''}
+                          style={{
+                            minWidth: COL_W, width: COL_W, textAlign: 'center', fontSize: 9,
+                            padding: '3px 1px', background: isHoliday ? '#2a1400' : isLeave ? '#1a1028' : '#0e0e0c',
+                            borderRight: '1px solid #141412', borderBottom: '1px solid #222220',
+                            color: isHoliday ? '#EF9F27' : isLeave ? '#9b7ec8' : isTd ? '#85B7EB' : off.off ? '#2a2a27' : '#555552',
+                            fontWeight: isTd ? 700 : 400,
+                            cursor: off.name ? 'help' : 'default',
+                          }}
+                        >
                           {day.getDate()}
                         </th>
                       )
@@ -487,17 +510,26 @@ export default function ProjectPage({ params }: { params: { project: string } })
                               )}
 
                               {Array.from({ length: total }).map((_, i) => {
-                                const off = isOffDay(days[i], holidays)
-                                const isTd = i === todayI
-                                const cellBg = off.off && off.type === 'ph'
-                                  ? 'rgba(133,79,11,0.12)'
-                                  : off.off
-                                    ? 'repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(255,255,255,.02) 3px,rgba(255,255,255,.02) 6px)'
-                                    : 'transparent'
+                                const off     = isOffDay(days[i], holidays)
+                                const isTd    = i === todayI
+                                const isHol   = off.off && off.type === 'ph'
+                                const isSL    = off.off && off.type === 'sl'
+                                const isWknd  = off.off && off.type === 'weekend'
+
+                                // Fix 5: holiday cells are clearly orange-blocked
+                                const cellBg = isHol
+                                  ? 'rgba(180,80,0,0.18)'
+                                  : isSL
+                                    ? 'rgba(100,60,180,0.15)'
+                                    : isWknd
+                                      ? 'repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(255,255,255,.018) 3px,rgba(255,255,255,.018) 6px)'
+                                      : 'transparent'
+
+                                const cellBorder = isHol ? '1px solid rgba(180,100,0,0.3)' : isSL ? '1px solid rgba(100,60,180,0.25)' : '1px solid #141412'
 
                                 if (tsk && i === s) {
                                   return (
-                                    <td key={i} colSpan={span} style={{ padding: '0 2px', height: 36, verticalAlign: 'middle', position: 'relative', background: isTd ? 'rgba(55,138,221,0.06)' : 'transparent' }}>
+                                    <td key={i} colSpan={span} style={{ padding: '0 2px', height: 36, verticalAlign: 'middle', position: 'relative', background: isTd ? 'rgba(55,138,221,0.06)' : isHol ? 'rgba(180,80,0,0.10)' : 'transparent' }}>
                                       {isTd && <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1.5, background: '#378ADD', opacity: 0.6, transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 5 }} />}
                                       <div
                                         style={{ height: 22, borderRadius: 5, display: 'flex', alignItems: 'center', position: 'relative', cursor: 'pointer', userSelect: 'none', ...barStyle }}
@@ -506,20 +538,21 @@ export default function ProjectPage({ params }: { params: { project: string } })
                                         onMouseLeave={() => setTooltip(null)}
                                         onMouseMove={ev => setTooltip(t => t ? { ...t, x: ev.clientX, y: ev.clientY } : null)}
                                       >
+                                        {/* Fix 1: drag handles visible on both sides */}
                                         <div
                                           onMouseDown={ev => { ev.stopPropagation(); ev.preventDefault(); dragRef.current = { id: tsk.id, side: 'l', startX: ev.clientX, origStart: parseDate(tsk.start_date), origEnd: parseDate(tsk.end_date), lastCols: 0 } }}
-                                          style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 8, cursor: 'ew-resize', zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                          style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 10, cursor: 'ew-resize', zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
-                                          <div style={{ width: 2, height: 10, borderRadius: 1, background: 'currentColor', opacity: 0.4 }} />
+                                          <div style={{ width: 3, height: 12, borderRadius: 2, background: 'currentColor', opacity: 0.5 }} />
                                         </div>
-                                        <div style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                                        <div style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '0 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
                                           {ep.name}
                                         </div>
                                         <div
                                           onMouseDown={ev => { ev.stopPropagation(); ev.preventDefault(); dragRef.current = { id: tsk.id, side: 'r', startX: ev.clientX, origStart: parseDate(tsk.start_date), origEnd: parseDate(tsk.end_date), lastCols: 0 } }}
-                                          style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 8, cursor: 'ew-resize', zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                          style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 10, cursor: 'ew-resize', zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
-                                          <div style={{ width: 2, height: 10, borderRadius: 1, background: 'currentColor', opacity: 0.4 }} />
+                                          <div style={{ width: 3, height: 12, borderRadius: 2, background: 'currentColor', opacity: 0.5 }} />
                                         </div>
                                       </div>
                                     </td>
@@ -528,8 +561,21 @@ export default function ProjectPage({ params }: { params: { project: string } })
                                 if (tsk && i > s && i <= e) return null
 
                                 return (
-                                  <td key={i} style={{ minWidth: COL_W, width: COL_W, height: 36, padding: 0, position: 'relative', borderRight: '1px solid #141412' }}>
-                                    <div style={{ position: 'absolute', inset: 0, backgroundImage: cellBg, backgroundSize: '6px 6px' }} />
+                                  <td key={i} style={{ minWidth: COL_W, width: COL_W, height: 36, padding: 0, position: 'relative', borderRight: cellBorder }}>
+                                    <div style={{ position: 'absolute', inset: 0, background: cellBg }} />
+                                    {/* Fix 5: show holiday name label at top of column */}
+                                    {isHol && epIdx === 0 && (
+                                      <div style={{
+                                        position: 'absolute', top: 1, left: '50%', transform: 'translateX(-50%)',
+                                        fontSize: 7, color: '#EF9F27', fontWeight: 700,
+                                        whiteSpace: 'nowrap', letterSpacing: '.03em',
+                                        writingMode: 'vertical-rl', textOrientation: 'mixed',
+                                        maxHeight: 32, overflow: 'hidden', lineHeight: 1.1,
+                                        zIndex: 2, opacity: 0.85,
+                                      }}>
+                                        {off.name}
+                                      </div>
+                                    )}
                                     {isTd && <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1.5, background: '#378ADD', opacity: 0.6, transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 5 }} />}
                                     {!hasAny && epIdx === 0 && i === Math.floor(total / 2) && (
                                       <div

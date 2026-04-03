@@ -70,6 +70,8 @@ export async function getProject(id: string): Promise<Project> {
 export async function createProject(project: Partial<Project>): Promise<Project> {
   const { data, error } = await supabase.from('projects').insert(project).select().single()
   if (error) throw error
+  // Seed default departments + Malaysian holidays for every new project
+  await supabase.rpc('seed_project_defaults', { p_project_id: data.id })
   return data
 }
 
