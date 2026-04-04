@@ -22,3 +22,13 @@ input:focus, select:focus, textarea:focus {
 }
 
 select option { background: #1a1a18; color: #e8e6df; }
+
+/* Fix 4: Make date input calendar icon visible on dark background */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7) brightness(1.4);
+  cursor: pointer;
+  opacity: 0.8;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}

@@ -62,16 +62,37 @@ function defaultViewEnd(): Date {
   return d
 }
 
-// ─── Holidays Modal ───────────────────────────────────
-function HolidaysModal({ holidays, projectId, onAdd, onRemove, onClose }: {
+// ─── Holidays Modal with inline editing (Fix 1) ──────
+function HolidaysModal({ holidays, projectId, onAdd, onRemove, onUpdate, onClose }: {
   holidays: Holiday[]; projectId: string
-  onAdd: (h: Holiday) => void; onRemove: (id: string) => void; onClose: () => void
+  onAdd: (h: Holiday) => void; onRemove: (id: string) => void
+  onUpdate: (h: Holiday) => void; onClose: () => void
 }) {
   const [date, setDate]     = useState('')
   const [name, setName]     = useState('')
   const [type, setType]     = useState<'ph' | 'sl'>('ph')
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
+  // editing state: which row is being edited
+  const [editId, setEditId]     = useState<string | null>(null)
+  const [editDate, setEditDate] = useState('')
+  const [editName, setEditName] = useState('')
+  const [editType, setEditType] = useState<'ph' | 'sl'>('ph')
+  const [editSaving, setEditSaving] = useState(false)
+
+  function startEdit(h: Holiday) {
+    setEditId(h.id); setEditDate(h.date); setEditName(h.name); setEditType(h.type)
+  }
+
+  async function saveEdit() {
+    if (!editId) return
+    setEditSaving(true)
+    try {
+      const saved = await upsertHoliday({ id: editId, project_id: projectId, date: editDate, name: editName.trim(), type: editType })
+      onUpdate(saved); setEditId(null)
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error') }
+    setEditSaving(false)
+  }
 
   async function add() {
     if (!date || !name.trim()) { setError('Please fill in date and name.'); return }
@@ -83,29 +104,56 @@ function HolidaysModal({ holidays, projectId, onAdd, onRemove, onClose }: {
     setSaving(false)
   }
 
+  const rowInp: React.CSSProperties = { height: 26, padding: '0 7px', borderRadius: 5, border: '1px solid #378ADD', background: '#0d2a45', color: '#e8e6df', fontSize: 11, fontFamily: 'inherit' }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: '#161614', border: '1px solid #2a2a27', borderRadius: 14, padding: 24, width: '100%', maxWidth: 500, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 48px rgba(0,0,0,.6)' }}>
+      <div style={{ background: '#161614', border: '1px solid #2a2a27', borderRadius: 14, padding: 24, width: '100%', maxWidth: 560, maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 48px rgba(0,0,0,.6)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#e8e6df' }}>Holidays &amp; special leave</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888780', cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
+        <div style={{ fontSize: 10, color: '#5F5E5A', marginBottom: 10 }}>Click any row to edit inline</div>
         <div style={{ flex: 1, overflowY: 'auto', marginBottom: 14 }}>
           {holidays.length === 0
             ? <div style={{ fontSize: 12, color: '#5F5E5A', padding: '16px 0', textAlign: 'center' }}>No holidays added yet.</div>
-            : [...holidays].sort((a, b) => a.date.localeCompare(b.date)).map(h => (
-              <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: '#111110', marginBottom: 5, borderLeft: `3px solid ${h.type === 'ph' ? '#854F0B' : '#534AB7'}` }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#c8c6bf', minWidth: 90 }}>
-                  {new Date(h.date + 'T12:00:00').toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-                <span style={{ flex: 1, fontSize: 11, color: '#888780' }}>{h.name}</span>
-                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: h.type === 'ph' ? '#231a0a' : '#1a0a2a', color: h.type === 'ph' ? '#FBCA75' : '#AFA9EC', whiteSpace: 'nowrap' }}>
-                  {h.type === 'ph' ? 'Public holiday' : 'Special leave'}
-                </span>
-                <button onClick={() => { deleteHoliday(h.id); onRemove(h.id) }} style={{ background: 'none', border: 'none', color: '#F09595', cursor: 'pointer', fontSize: 14 }}>✕</button>
-              </div>
-            ))
+            : [...holidays].sort((a, b) => a.date.localeCompare(b.date)).map(h => {
+              const isEditing = editId === h.id
+              return (
+                <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: isEditing ? '#0d2235' : '#111110', marginBottom: 5, borderLeft: `3px solid ${h.type === 'ph' ? '#854F0B' : '#534AB7'}`, cursor: isEditing ? 'default' : 'pointer', transition: 'background 0.12s' }}
+                  onClick={() => !isEditing && startEdit(h)}>
+                  {isEditing ? (
+                    <>
+                      <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ ...rowInp, width: 130 }} />
+                      <input type="text" value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveEdit()} style={{ ...rowInp, flex: 1 }} autoFocus />
+                      <select value={editType} onChange={e => setEditType(e.target.value as 'ph' | 'sl')} style={{ ...rowInp, width: 120 }}>
+                        <option value="ph">Public holiday</option>
+                        <option value="sl">Special leave</option>
+                      </select>
+                      <button onClick={saveEdit} disabled={editSaving} style={{ height: 26, padding: '0 10px', borderRadius: 5, background: '#0d2a45', color: '#85B7EB', border: '1px solid #1a4060', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {editSaving ? '...' : 'Save'}
+                      </button>
+                      <button onClick={() => setEditId(null)} style={{ height: 26, padding: '0 8px', borderRadius: 5, background: 'transparent', color: '#888780', border: '1px solid #2a2a27', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#c8c6bf', minWidth: 90 }}>
+                        {new Date(h.date + 'T12:00:00').toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span style={{ flex: 1, fontSize: 11, color: '#888780' }}>{h.name}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: h.type === 'ph' ? '#231a0a' : '#1a0a2a', color: h.type === 'ph' ? '#FBCA75' : '#AFA9EC', whiteSpace: 'nowrap' }}>
+                        {h.type === 'ph' ? 'Public holiday' : 'Special leave'}
+                      </span>
+                      <span style={{ fontSize: 9, color: '#5F5E5A', marginLeft: 2 }}>✎</span>
+                    </>
+                  )}
+                  {!isEditing && (
+                    <button onClick={e => { e.stopPropagation(); deleteHoliday(h.id); onRemove(h.id) }} style={{ background: 'none', border: 'none', color: '#F09595', cursor: 'pointer', fontSize: 13, padding: '0 2px' }}>✕</button>
+                  )}
+                </div>
+              )
+            })
           }
         </div>
         <div style={{ borderTop: '1px solid #222220', paddingTop: 14 }}>
@@ -555,9 +603,10 @@ export default function ProjectPage({ params }: { params: { project: string } })
 
                     return [
                       <tr key={grp.label}>
-                        <td colSpan={total + 1} style={{ padding: '5px 10px', background: '#0e0e0c', fontSize: 9, fontWeight: 700, color: '#5F5E5A', textTransform: 'uppercase', letterSpacing: '.09em', borderBottom: '1px solid #141412', position: 'sticky', left: 0, zIndex: 2 }}>
+                        <td style={{ padding: '5px 10px', background: '#0a0a09', fontSize: 9, fontWeight: 700, color: '#5F5E5A', textTransform: 'uppercase', letterSpacing: '.09em', borderBottom: '1px solid #141412', position: 'sticky', left: 0, zIndex: 4, whiteSpace: 'nowrap', minWidth: 150, maxWidth: 150 }}>
                           {grp.label}
                         </td>
+                        <td colSpan={total} style={{ background: '#0a0a09', borderBottom: '1px solid #141412' }} />
                       </tr>,
 
                       ...grpDepts.map(dept => {
@@ -707,7 +756,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
       )}
 
       {modal && <TaskModal modal={modal} departments={departments} episodes={episodes} onSave={saveTask} onDelete={removeTask} onClose={() => setModal(null)} />}
-      {showHolidays && <HolidaysModal holidays={holidays} projectId={projectId} onAdd={h => setHolidays(prev => [...prev, h])} onRemove={id => setHolidays(prev => prev.filter(h => h.id !== id))} onClose={() => setShowHolidays(false)} />}
+      {showHolidays && <HolidaysModal holidays={holidays} projectId={projectId} onAdd={h => setHolidays(prev => [...prev, h].sort((a,b) => a.date.localeCompare(b.date)))} onRemove={id => setHolidays(prev => prev.filter(h => h.id !== id))} onUpdate={h => setHolidays(prev => prev.map(x => x.id === h.id ? h : x))} onClose={() => setShowHolidays(false)} />}
       {showEpisodes && <EpisodeModal episodes={episodes} projectId={projectId} onAdd={ep => setEpisodes(prev => [...prev, ep].sort((a, b) => a.name.localeCompare(b.name)))} onDelete={id => setEpisodes(prev => prev.filter(e => e.id !== id))} onClose={() => setShowEpisodes(false)} />}
     </div>
   )
