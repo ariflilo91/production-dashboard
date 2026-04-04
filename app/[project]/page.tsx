@@ -177,7 +177,7 @@ function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
           {error && <div style={{ fontSize: 11, color: '#F09595', marginBottom: 8 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <input type="text" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="e.g. Ep 10" style={{ ...modalInp, flex: 1, minWidth: 100 }} autoFocus />
-            <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} title="Target air date (optional)" style={{ ...modalInp, width: 140 }} />
+            
             <button onClick={add} disabled={saving} style={{ height: 34, padding: '0 16px', borderRadius: 7, background: '#0a1e0a', color: '#97C459', border: '1px solid #183018', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {saving ? '...' : '+ Add'}
             </button>
@@ -312,7 +312,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const [showHolidays, setShowHolidays] = useState(false)
   const [showEpisodes, setShowEpisodes] = useState(false)
   const today = new Date()
-  const dragRef = useRef<{ id: string; side: 'l' | 'r'; startX: number; origStart: Date; origEnd: Date; lastCols: number } | null>(null)
+  const dragRef = useRef<{ id: string; side: 'l' | 'r' | 'move'; startX: number; origStart: Date; origEnd: Date; lastCols: number } | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -337,7 +337,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
       setTasks(prev => prev.map(t => {
         if (t.id !== id) return t
         const clone = { ...t }
-        if (side === 'r') { const nd = addDays(origEnd, cols); clone.end_date = formatDateInput(nd < origStart ? origStart : nd) }
+        if (side === 'r') { const nd = addDays(origEnd, cols); clone.end_date = formatDateInput(nd < origStart ? origStart : nd) } else if (side === 'move') { const dur = dayDiff(origStart, origEnd); const ns = addDays(origStart, cols); const ne = addDays(ns, dur); clone.start_date = formatDateInput(ns); clone.end_date = formatDateInput(ne) }
         else { const nd = addDays(origStart, cols); clone.start_date = formatDateInput(nd > origEnd ? origEnd : nd) }
         return clone
       }))
@@ -646,7 +646,10 @@ export default function ProjectPage({ params }: { params: { project: string } })
                                           <div onMouseDown={ev => { ev.stopPropagation(); ev.preventDefault(); dragRef.current = { id: tsk.id, side: 'l', startX: ev.clientX, origStart: parseDate(tsk.start_date), origEnd: parseDate(tsk.end_date), lastCols: 0 } }} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 10, cursor: 'ew-resize', zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <div style={{ width: 3, height: 12, borderRadius: 2, background: 'currentColor', opacity: 0.5 }} />
                                           </div>
-                                          <div style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '0 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                                          <div
+                                            onMouseDown={ev => { ev.stopPropagation(); ev.preventDefault(); dragRef.current = { id: tsk.id, side: 'move', startX: ev.clientX, origStart: parseDate(tsk.start_date), origEnd: parseDate(tsk.end_date), lastCols: 0 } }}
+                                            style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '0 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'grab' }}
+                                          >
                                             {ep.name}
                                           </div>
                                           <div onMouseDown={ev => { ev.stopPropagation(); ev.preventDefault(); dragRef.current = { id: tsk.id, side: 'r', startX: ev.clientX, origStart: parseDate(tsk.start_date), origEnd: parseDate(tsk.end_date), lastCols: 0 } }} style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 10, cursor: 'ew-resize', zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

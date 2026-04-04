@@ -5,9 +5,19 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import TopNav from '@/components/TopNav'
 import { StatCard, Badge, ProgressBar } from '@/components/UI'
-import { getProjects, getTasks, createProject, Project } from '@/lib/supabase'
+import { getProjects, getTasks, getEpisodes, getHolidays, createProject, Project, Task, Episode, Holiday } from '@/lib/supabase'
+import { buildDays, dayDiff, addDays, formatDateInput, isOffDay, parseDate } from '@/lib/utils'
 
-const COLORS = ['#378ADD', '#1D9E75', '#D85A30', '#7F77DD', '#D4537E', '#BA7517']
+const COLORS = ['#378ADD','#1D9E75','#D85A30','#7F77DD','#D4537E','#BA7517']
+
+const BAR: Record<string, React.CSSProperties> = {
+  done:     { background: '#0a1e0a', color: '#97C459', border: '1px solid #183018' },
+  wip:      { background: '#071828', color: '#85B7EB', border: '1px solid #0d2a48' },
+  review:   { background: '#1e1408', color: '#FBCA75', border: '1px solid #3a2808' },
+  overdue:  { background: '#1e0808', color: '#F09595', border: '1px solid #3a1010' },
+  risk:     { background: '#1e1408', color: '#FBCA75', border: '1.5px solid #F09595' },
+  upcoming: { background: '#1a1a2e', color: '#9b9bc8', border: '1px solid #2a2a52' },
+}
 
 const inp: React.CSSProperties = {
   width: '100%', height: 36, padding: '0 12px', borderRadius: 8,
@@ -15,6 +25,28 @@ const inp: React.CSSProperties = {
   color: '#e8e6df', fontSize: 12, fontFamily: 'inherit',
 }
 
+// Build weekly bins from a date range
+function buildWeeks(start: Date, end: Date): { label: string; weekStart: Date; weekEnd: Date }[] {
+  const weeks: { label: string; weekStart: Date; weekEnd: Date }[] = []
+  // align to Monday
+  const cur = new Date(start)
+  const dow = cur.getDay()
+  const diff = dow === 0 ? -6 : 1 - dow
+  cur.setDate(cur.getDate() + diff)
+  cur.setHours(12,0,0,0)
+  let wn = 1
+  while (cur <= end) {
+    const ws = new Date(cur)
+    const we = addDays(ws, 6)
+    const monthLabel = ws.toLocaleString('en', { month: 'short', year: 'numeric' })
+    weeks.push({ label: `W${wn}`, weekStart: ws, weekEnd: we })
+    cur.setDate(cur.getDate() + 7)
+    wn++
+  }
+  return weeks
+}
+
+// New Project Modal
 function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: (p: Project) => void }) {
   const router = useRouter()
   const [name, setName]     = useState('')
@@ -39,11 +71,9 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
   }
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div style={{ background: '#161614', border: '1px solid #2a2a27', borderRadius: 14, padding: 28, width: '100%', maxWidth: 460, boxShadow: '0 8px 48px rgba(0,0,0,.6)' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: '#161614', border: '1px solid #2a2a27', borderRadius: 14, padding: 28, width: '100%', maxWidth: 460, boxShadow: '0 8px 48px rgba(0,0,0,.6)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: '#e8e6df', marginBottom: 20 }}>New project</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
@@ -65,7 +95,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <div>
             <label style={{ fontSize: 10, color: '#888780', display: 'block', marginBottom: 5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em' }}>Status</label>
             <select value={status} onChange={e => setStatus(e.target.value)} style={inp}>
-              {['Active', 'Planning', 'On hold', 'Completed'].map(s => <option key={s} value={s}>{s}</option>)}
+              {['Active','Planning','On hold','Completed'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>
@@ -77,9 +107,7 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
             <button onClick={handleCreate} disabled={saving} style={{ flex: 1, height: 40, borderRadius: 9, background: '#0d2a45', color: '#85B7EB', border: '1px solid #1a4060', fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1, fontFamily: 'inherit' }}>
               {saving ? 'Creating...' : 'Create project'}
             </button>
-            <button onClick={onClose} style={{ height: 40, padding: '0 20px', borderRadius: 9, border: '1px solid #2a2a27', background: 'transparent', color: '#a8a6a0', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Cancel
-            </button>
+            <button onClick={onClose} style={{ height: 40, padding: '0 20px', borderRadius: 9, border: '1px solid #2a2a27', background: 'transparent', color: '#a8a6a0', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
           </div>
         </div>
       </div>
@@ -87,25 +115,133 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
   )
 }
 
+// Fix 4: Weekly Gantt per project — compact, one row per dept with combined episode bars
+function ProjectWeeklyGantt({ project, tasks, episodes, holidays, weeks }: {
+  project: Project; tasks: Task[]; episodes: Episode[]; holidays: Holiday[]
+  weeks: { label: string; weekStart: Date; weekEnd: Date }[]
+}) {
+  const DEPT_ORDER = ['Script','Storyboard','Concept','Modeling','Animation','Recording','Scoring','Mixing','Render','Comp']
+  const DEPT_FULL: Record<string,string> = { Script:'Script', Storyboard:'Storyboard', Concept:'Concept design', Modeling:'Modeling', Animation:'Animation', Recording:'Recording', Scoring:'Scoring', Mixing:'Mixing', Render:'Render', Comp:'Compositing' }
+
+  // group tasks by dept
+  const tasksByDept: Record<string, Task[]> = {}
+  tasks.forEach(t => {
+    const d = t.department?.name || ''
+    if (!tasksByDept[d]) tasksByDept[d] = []
+    tasksByDept[d].push(t)
+  })
+
+  const activeDepts = DEPT_ORDER.filter(d => tasksByDept[d]?.length)
+  if (!activeDepts.length) return (
+    <div style={{ fontSize: 11, color: '#5F5E5A', padding: '12px 0', textAlign: 'center' }}>No tasks yet</div>
+  )
+
+  const COL = 52 // px per week column
+
+  return (
+    <div style={{ overflowX: 'auto', marginTop: 10 }}>
+      <table style={{ borderCollapse: 'collapse', fontSize: 10, minWidth: '100%' }}>
+        <thead>
+          <tr>
+            <th style={{ position: 'sticky', left: 0, zIndex: 4, background: '#161614', minWidth: 90, maxWidth: 90, padding: '4px 8px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: '#5F5E5A', textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '1px solid #222220', borderBottom: '1px solid #222220' }}>Dept</th>
+            {weeks.map((w, i) => {
+              // check if any day in this week is a holiday
+              const days = buildDays(w.weekStart, w.weekEnd)
+              const hasHol = days.some(d => isOffDay(d, holidays).off && isOffDay(d, holidays).type === 'ph')
+              return (
+                <th key={i} style={{ minWidth: COL, width: COL, textAlign: 'center', fontSize: 9, fontWeight: 600, padding: '4px 2px', background: hasHol ? '#1e1200' : '#161614', borderRight: '1px solid #1e1e1c', borderBottom: '1px solid #222220', color: hasHol ? '#EF9F27' : '#888780', whiteSpace: 'nowrap' }}>
+                  {w.label}
+                  <div style={{ fontSize: 8, color: hasHol ? '#854F0B' : '#5F5E5A', fontWeight: 400 }}>
+                    {w.weekStart.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}
+                  </div>
+                </th>
+              )
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {activeDepts.map(deptName => {
+            const deptTasks = tasksByDept[deptName] || []
+
+            return (
+              <tr key={deptName} style={{ borderBottom: '1px solid #141412' }}>
+                <td style={{ position: 'sticky', left: 0, zIndex: 2, background: '#161614', padding: '0 8px', minWidth: 90, maxWidth: 90, height: 30, verticalAlign: 'middle', borderRight: '1px solid #222220', fontSize: 10, fontWeight: 600, color: '#c8c6bf', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {DEPT_FULL[deptName] || deptName}
+                </td>
+                {weeks.map((w, wi) => {
+                  // Find tasks active in this week
+                  const activeTasks = deptTasks.filter(t => {
+                    const ts = parseDate(t.start_date)
+                    const te = parseDate(t.end_date)
+                    return ts <= w.weekEnd && te >= w.weekStart
+                  })
+
+                  if (!activeTasks.length) {
+                    const days = buildDays(w.weekStart, w.weekEnd)
+                    const hasHol = days.some(d => isOffDay(d, holidays).off && isOffDay(d, holidays).type === 'ph')
+                    return (
+                      <td key={wi} style={{ minWidth: COL, width: COL, height: 30, padding: 0, position: 'relative', borderRight: '1px solid #141412', background: hasHol ? 'rgba(180,80,0,0.1)' : 'transparent' }} />
+                    )
+                  }
+
+                  // Show the most "urgent" task's bar
+                  const priority = ['overdue','risk','wip','review','upcoming','done']
+                  const t = activeTasks.sort((a, b) => priority.indexOf(a.status) - priority.indexOf(b.status))[0]
+                  const barStyle = BAR[t.status] || BAR.upcoming
+                  const ep = episodes.find(e => e.id === t.episode_id)
+
+                  return (
+                    <td key={wi} style={{ minWidth: COL, width: COL, height: 30, padding: '0 2px', verticalAlign: 'middle', borderRight: '1px solid #141412' }}>
+                      <div style={{ height: 20, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', ...barStyle, fontSize: 9, fontWeight: 700, overflow: 'hidden', whiteSpace: 'nowrap', padding: '0 4px' }}>
+                        {ep?.name || ''}
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function MasterDashboard() {
   const [projects, setProjects]             = useState<Project[]>([])
   const [taskCounts, setTaskCounts]         = useState<Record<string, Record<string, number>>>({})
+  const [projectTasks, setProjectTasks]     = useState<Record<string, Task[]>>({})
+  const [projectEpisodes, setProjectEps]    = useState<Record<string, Episode[]>>({})
+  const [projectHolidays, setProjectHols]   = useState<Record<string, Holiday[]>>({})
   const [loading, setLoading]               = useState(true)
   const [showNewProject, setShowNewProject] = useState(false)
+  // Fix 4: tab between card view and timeline view
+  const [view, setView]                     = useState<'cards' | 'timeline'>('cards')
+
+  // Fix 4: weekly timeline range — 4 weeks back to 1 year forward
+  const ganttStart = (() => { const d = new Date(); d.setDate(d.getDate() - 28); d.setHours(12,0,0,0); return d })()
+  const ganttEnd   = (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); d.setHours(12,0,0,0); return d })()
+  const weeks      = buildWeeks(ganttStart, ganttEnd)
 
   useEffect(() => { load() }, [])
 
   async function load() {
     const projs = await getProjects()
     setProjects(projs)
-    const counts: Record<string, Record<string, number>> = {}
+    const counts: Record<string, Record<string, number>>  = {}
+    const tByP:   Record<string, Task[]>                  = {}
+    const eByP:   Record<string, Episode[]>               = {}
+    const hByP:   Record<string, Holiday[]>               = {}
     await Promise.all(projs.map(async p => {
-      const tasks = await getTasks(p.id)
+      const [tasks, eps, hols] = await Promise.all([getTasks(p.id), getEpisodes(p.id), getHolidays(p.id)])
       const c: Record<string, number> = { total: tasks.length }
       tasks.forEach(t => { c[t.status] = (c[t.status] || 0) + 1 })
       counts[p.id] = c
+      tByP[p.id]   = tasks
+      eByP[p.id]   = eps
+      hByP[p.id]   = hols
     }))
-    setTaskCounts(counts)
+    setTaskCounts(counts); setProjectTasks(tByP); setProjectEps(eByP); setProjectHols(hByP)
     setLoading(false)
   }
 
@@ -114,6 +250,13 @@ export default function MasterDashboard() {
   const totalRisk    = projects.reduce((a, p) => a + (taskCounts[p.id]?.risk || 0), 0)
   const totalWip     = projects.reduce((a, p) => a + ((taskCounts[p.id]?.wip || 0) + (taskCounts[p.id]?.review || 0)), 0)
   const totalDone    = projects.reduce((a, p) => a + (taskCounts[p.id]?.done || 0), 0)
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    padding: '6px 14px', fontSize: 12, cursor: 'pointer', fontWeight: active ? 600 : 400,
+    color: active ? '#e8e6df' : '#888780', borderBottom: `2px solid ${active ? '#378ADD' : 'transparent'}`,
+    marginBottom: -1, background: 'none', border: 'none', borderBottom: `2px solid ${active ? '#378ADD' : 'transparent'}`,
+    fontFamily: 'inherit',
+  })
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0e0e0c' }}>
@@ -127,11 +270,13 @@ export default function MasterDashboard() {
             </button>
           }
         />
+
         <div style={{ padding: 20, overflowY: 'auto' }}>
           {loading ? (
-            <div style={{ color: '#888780', padding: '40px 0', textAlign: 'center' }}>Loading projects...</div>
+            <div style={{ color: '#888780', padding: '40px 0', textAlign: 'center' }}>Loading...</div>
           ) : (
             <>
+              {/* Stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 20 }}>
                 <StatCard label="Total overdue"   value={totalOverdue} sub="across all projects" color={totalOverdue > 0 ? 'red' : 'default'} />
                 <StatCard label="At risk"         value={totalRisk}    sub="need attention"       color={totalRisk > 0 ? 'amber' : 'default'} />
@@ -139,108 +284,169 @@ export default function MasterDashboard() {
                 <StatCard label="Done this cycle" value={totalDone}    sub="tasks completed"      color="green" />
               </div>
 
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e6df', marginBottom: 2 }}>All projects</div>
-                <div style={{ fontSize: 11, color: '#888780' }}>{projects.length} production{projects.length !== 1 ? 's' : ''}</div>
+              {/* Fix 4: View tabs */}
+              <div style={{ display: 'flex', borderBottom: '1px solid #222220', marginBottom: 16, gap: 0 }}>
+                <button style={tabStyle(view === 'cards')}    onClick={() => setView('cards')}>Project cards</button>
+                <button style={tabStyle(view === 'timeline')} onClick={() => setView('timeline')}>Weekly timeline</button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, marginBottom: 20 }}>
-                {projects.map(p => {
-                  const c = taskCounts[p.id] || {}
-                  const total = Math.max(c.total || 1, 1)
-                  const done = c.done || 0
-                  const pct = Math.round(done / total * 100)
-                  const ov = c.overdue || 0
-                  const rk = c.risk || 0
-                  return (
-                    <Link key={p.id} href={`/${p.id}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ background: '#161614', border: `1px solid ${ov > 0 ? '#3a1010' : '#222220'}`, borderRadius: 10, padding: 14, cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, marginTop: 4, flexShrink: 0 }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e6df', lineHeight: 1.3 }}>{p.name}</div>
-                            {p.code && <div style={{ fontSize: 10, color: '#888780', marginTop: 2 }}>{p.code}</div>}
-                          </div>
-                          <Badge status={p.status} />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 12 }}>
-                          {[{ v: ov, l: 'Overdue', c: ov > 0 ? '#F09595' : '#888780' }, { v: rk, l: 'At risk', c: rk > 0 ? '#FBCA75' : '#888780' }, { v: done, l: 'Done', c: '#97C459' }].map(({ v, l, c: col }) => (
-                            <div key={l} style={{ background: '#111110', border: '1px solid #1e1e1c', borderRadius: 7, padding: '8px 6px', textAlign: 'center' }}>
-                              <div style={{ fontSize: 20, fontWeight: 700, color: col, lineHeight: 1, marginBottom: 3 }}>{v}</div>
-                              <div style={{ fontSize: 10, color: '#888780', fontWeight: 500 }}>{l}</div>
+              {/* CARDS VIEW */}
+              {view === 'cards' && (
+                <>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e6df', marginBottom: 2 }}>All projects</div>
+                    <div style={{ fontSize: 11, color: '#888780' }}>{projects.length} production{projects.length !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, marginBottom: 20 }}>
+                    {projects.map(p => {
+                      const c = taskCounts[p.id] || {}
+                      const total = Math.max(c.total || 1, 1)
+                      const done = c.done || 0; const pct = Math.round(done / total * 100)
+                      const ov = c.overdue || 0; const rk = c.risk || 0
+                      return (
+                        <Link key={p.id} href={`/${p.id}`} style={{ textDecoration: 'none' }}>
+                          <div style={{ background: '#161614', border: `1px solid ${ov > 0 ? '#3a1010' : '#222220'}`, borderRadius: 10, padding: 14, cursor: 'pointer' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, marginTop: 4, flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e6df', lineHeight: 1.3 }}>{p.name}</div>
+                                {p.code && <div style={{ fontSize: 10, color: '#888780', marginTop: 2 }}>{p.code}</div>}
+                              </div>
+                              <Badge status={p.status} />
                             </div>
-                          ))}
-                        </div>
-                        <ProgressBar pct={pct} color={p.color} height={4} />
-                        <div style={{ fontSize: 10, color: '#888780', textAlign: 'right', marginTop: 5, fontWeight: 500 }}>{pct}% complete</div>
-                      </div>
-                    </Link>
-                  )
-                })}
-                <div onClick={() => setShowNewProject(true)} style={{ background: '#111110', border: '1.5px dashed #2a2a27', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', minHeight: 180 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px dashed #3a3a37', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#5F5E5A' }}>+</div>
-                  <div style={{ fontSize: 11, color: '#5F5E5A', fontWeight: 600 }}>New project</div>
-                </div>
-              </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 12 }}>
+                              {[{ v: ov, l: 'Overdue', c: ov > 0 ? '#F09595' : '#888780' }, { v: rk, l: 'At risk', c: rk > 0 ? '#FBCA75' : '#888780' }, { v: done, l: 'Done', c: '#97C459' }].map(({ v, l, c: col }) => (
+                                <div key={l} style={{ background: '#111110', border: '1px solid #1e1e1c', borderRadius: 7, padding: '8px 6px', textAlign: 'center' }}>
+                                  <div style={{ fontSize: 20, fontWeight: 700, color: col, lineHeight: 1, marginBottom: 3 }}>{v}</div>
+                                  <div style={{ fontSize: 10, color: '#888780', fontWeight: 500 }}>{l}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <ProgressBar pct={pct} color={p.color} height={4} />
+                            <div style={{ fontSize: 10, color: '#888780', textAlign: 'right', marginTop: 5, fontWeight: 500 }}>{pct}% complete</div>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                    <div onClick={() => setShowNewProject(true)} style={{ background: '#111110', border: '1.5px dashed #2a2a27', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', minHeight: 180 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px dashed #3a3a37', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#5F5E5A' }}>+</div>
+                      <div style={{ fontSize: 11, color: '#5F5E5A', fontWeight: 600 }}>New project</div>
+                    </div>
+                  </div>
 
-              {projects.length > 0 && (
-                <div style={{ background: '#161614', border: '1px solid #222220', borderRadius: 10, overflow: 'hidden' }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #222220' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#e8e6df' }}>Cross-project comparison</div>
+                  {/* Cross-project table */}
+                  {projects.length > 0 && (
+                    <div style={{ background: '#161614', border: '1px solid #222220', borderRadius: 10, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #222220' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#e8e6df' }}>Cross-project comparison</div>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                          <thead>
+                            <tr>{['Project','Progress','Overdue','At risk','Risk rating',''].map(h => (
+                              <th key={h} style={{ textAlign: 'left', padding: '8px 14px', fontSize: 10, color: '#888780', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: '1px solid #222220', whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}</tr>
+                          </thead>
+                          <tbody>
+                            {projects.map(p => {
+                              const c = taskCounts[p.id] || {}
+                              const total = Math.max(c.total || 1, 1)
+                              const pct = Math.round((c.done || 0) / total * 100)
+                              const ov = c.overdue || 0; const rk = c.risk || 0
+                              const riskLabel = ov > 0 ? 'High' : rk > 0 ? 'Medium' : 'Low'
+                              const riskColor = ov > 0 ? '#F09595' : rk > 0 ? '#FBCA75' : '#97C459'
+                              const riskBg    = ov > 0 ? '#2a0a0a' : rk > 0 ? '#231a0a' : '#0a1a0a'
+                              return (
+                                <tr key={p.id} style={{ borderBottom: '1px solid #1a1a18' }}>
+                                  <td style={{ padding: '10px 14px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
+                                      <span style={{ fontWeight: 700, color: '#e8e6df' }}>{p.name}</span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '10px 14px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                      <div style={{ width: 64, height: 5, background: '#1e1e1c', borderRadius: 3, overflow: 'hidden' }}>
+                                        <div style={{ width: `${pct}%`, height: '100%', background: p.color, borderRadius: 3 }} />
+                                      </div>
+                                      <span style={{ fontSize: 11, color: '#888780', fontWeight: 600 }}>{pct}%</span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '10px 14px', color: ov > 0 ? '#F09595' : '#888780', fontWeight: ov > 0 ? 700 : 400 }}>{ov > 0 ? ov : '—'}</td>
+                                  <td style={{ padding: '10px 14px', color: rk > 0 ? '#FBCA75' : '#888780', fontWeight: rk > 0 ? 700 : 400 }}>{rk > 0 ? rk : '—'}</td>
+                                  <td style={{ padding: '10px 14px' }}>
+                                    <span style={{ background: riskBg, color: riskColor, border: `1px solid ${riskColor}40`, fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10 }}>{riskLabel}</span>
+                                  </td>
+                                  <td style={{ padding: '10px 14px' }}>
+                                    <Link href={`/${p.id}`} style={{ fontSize: 11, color: '#85B7EB', fontWeight: 600, textDecoration: 'none' }}>Open →</Link>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Fix 4: WEEKLY TIMELINE VIEW — one card per project */}
+              {view === 'timeline' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ fontSize: 11, color: '#5F5E5A', marginBottom: 4 }}>
+                    Weekly view · {ganttStart.toLocaleDateString('en-MY', { day:'numeric', month:'short', year:'numeric' })} – {ganttEnd.toLocaleDateString('en-MY', { day:'numeric', month:'short', year:'numeric' })} · Hover week headers to see holiday info
                   </div>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                      <thead>
-                        <tr>{['Project', 'Progress', 'Overdue', 'At risk', 'Risk rating', ''].map(h => (
-                          <th key={h} style={{ textAlign: 'left', padding: '8px 14px', fontSize: 10, color: '#888780', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: '1px solid #222220', whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}</tr>
-                      </thead>
-                      <tbody>
-                        {projects.map(p => {
-                          const c = taskCounts[p.id] || {}
-                          const total = Math.max(c.total || 1, 1)
-                          const pct = Math.round((c.done || 0) / total * 100)
-                          const ov = c.overdue || 0
-                          const rk = c.risk || 0
-                          const riskLabel = ov > 0 ? 'High' : rk > 0 ? 'Medium' : 'Low'
-                          const riskColor = ov > 0 ? '#F09595' : rk > 0 ? '#FBCA75' : '#97C459'
-                          const riskBg    = ov > 0 ? '#2a0a0a' : rk > 0 ? '#231a0a' : '#0a1a0a'
-                          return (
-                            <tr key={p.id} style={{ borderBottom: '1px solid #1a1a18' }}>
-                              <td style={{ padding: '10px 14px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
-                                  <span style={{ fontWeight: 700, color: '#e8e6df' }}>{p.name}</span>
-                                </div>
-                              </td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <div style={{ width: 64, height: 5, background: '#1e1e1c', borderRadius: 3, overflow: 'hidden' }}>
-                                    <div style={{ width: `${pct}%`, height: '100%', background: p.color, borderRadius: 3 }} />
-                                  </div>
-                                  <span style={{ fontSize: 11, color: '#888780', fontWeight: 600 }}>{pct}%</span>
-                                </div>
-                              </td>
-                              <td style={{ padding: '10px 14px', color: ov > 0 ? '#F09595' : '#888780', fontWeight: ov > 0 ? 700 : 400 }}>{ov > 0 ? ov : '—'}</td>
-                              <td style={{ padding: '10px 14px', color: rk > 0 ? '#FBCA75' : '#888780', fontWeight: rk > 0 ? 700 : 400 }}>{rk > 0 ? rk : '—'}</td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <span style={{ background: riskBg, color: riskColor, border: `1px solid ${riskColor}40`, fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10 }}>{riskLabel}</span>
-                              </td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <Link href={`/${p.id}`} style={{ fontSize: 11, color: '#85B7EB', fontWeight: 600, textDecoration: 'none' }}>Open →</Link>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  {projects.map(p => {
+                    const c = taskCounts[p.id] || {}
+                    const total = Math.max(c.total || 1, 1)
+                    const pct = Math.round((c.done || 0) / total * 100)
+                    const ov = c.overdue || 0
+
+                    return (
+                      <div key={p.id} style={{ background: '#161614', border: `1px solid ${ov > 0 ? '#3a1010' : '#222220'}`, borderRadius: 12, overflow: 'hidden' }}>
+                        {/* Project header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid #222220' }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e6df' }}>{p.name}</div>
+                            {p.code && <div style={{ fontSize: 10, color: '#888780' }}>{p.code}</div>}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 10, color: '#888780', marginBottom: 3 }}>{pct}% complete</div>
+                              <div style={{ width: 80, height: 4, background: '#1e1e1c', borderRadius: 2, overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: p.color, borderRadius: 2 }} />
+                              </div>
+                            </div>
+                            <Badge status={p.status} />
+                            <Link href={`/${p.id}`} style={{ fontSize: 11, color: '#85B7EB', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>Open →</Link>
+                          </div>
+                        </div>
+                        {/* Weekly Gantt */}
+                        <div style={{ padding: '0 0 4px' }}>
+                          <ProjectWeeklyGantt
+                            project={p}
+                            tasks={projectTasks[p.id] || []}
+                            episodes={projectEpisodes[p.id] || []}
+                            holidays={projectHolidays[p.id] || []}
+                            weeks={weeks}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {projects.length === 0 && (
+                    <div style={{ color: '#5F5E5A', textAlign: 'center', padding: '40px 0', fontSize: 13 }}>No projects yet. Create one to get started.</div>
+                  )}
                 </div>
               )}
             </>
           )}
         </div>
       </div>
+
       {showNewProject && (
         <NewProjectModal
           onClose={() => setShowNewProject(false)}
