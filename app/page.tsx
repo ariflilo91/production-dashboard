@@ -253,7 +253,7 @@ export default function MasterDashboard() {
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '6px 14px', fontSize: 12, cursor: 'pointer', fontWeight: active ? 600 : 400,
-    color: active ? '#e8e6df' : '#888780', borderBottom: `2px solid ${active ? '#378ADD' : 'transparent'}`,
+    color: active ? '#e8e6df' : '#888780',
     marginBottom: -1, background: 'none', border: 'none', borderBottom: `2px solid ${active ? '#378ADD' : 'transparent'}`,
     fontFamily: 'inherit',
   })
