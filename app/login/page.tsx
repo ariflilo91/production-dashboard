@@ -36,16 +36,40 @@ function LoginContent() {
         setError('Password must be at least 6 characters.'); setLoading(false); return
       }
 
-      const { error: signUpError } = await supabase.auth.signUp({
+      // Step 1: Create auth user
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
       })
 
       if (signUpError) {
         setError(signUpError.message)
-      } else {
-        setMessage('Account created! Check your email to confirm, then wait for admin approval before signing in.')
+      } else if (signUpData.user) {
+        // Step 2: Check how many members exist to determine role
+        const { count } = await supabase
+          .from('team_members')
+          .select('*', { count: 'exact', head: true })
+
+        const isFirst = (count ?? 0) === 0
+        const displayName = email.trim().split('@')[0]
+
+        // Step 3: Insert into team_members directly
+        const { error: memberError } = await supabase.from('team_members').upsert({
+          user_id:      signUpData.user.id,
+          email:        email.trim(),
+          display_name: displayName,
+          role:         isFirst ? 'admin' : 'member',
+          status:       isFirst ? 'approved' : 'pending',
+        }, { onConflict: 'email' })
+
+        if (memberError) {
+          console.error('team_members insert error:', memberError)
+          setError('Account created but profile setup failed. Please contact admin.')
+        } else if (isFirst) {
+          setMessage('Admin account created! You can now sign in.')
+        } else {
+          setMessage('Account created! Wait for admin approval before signing in.')
+        }
       }
     } else {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
