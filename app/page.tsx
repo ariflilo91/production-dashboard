@@ -32,180 +32,6 @@ function buildMonths(start: Date, end: Date) {
   return months
 }
 
-function monthFraction(date: Date, year: number, month: number): number {
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  return Math.max(0, Math.min(1, (date.getDate() - 1) / daysInMonth))
-}
-
-// Fix 2: Seamless bar — uses absolute positioning over the full table row
-// rendered as an overlay on top of the month cells using a relative container
-function MasterTimelineGantt({ projects, projectTasks, taskCounts, months, today, todayMonthIdx, todayFrac, rangeStart, COL_W }: {
-  projects: Project[]; projectTasks: Record<string, Task[]>; taskCounts: Record<string, Record<string, number>>
-  months: { label: string; shortLabel: string; year: number; month: number }[]
-  today: Date; todayMonthIdx: number; todayFrac: number; rangeStart: Date; rangeEnd: Date; COL_W: number
-}) {
-  const LABEL_W = 180
-
-  // Convert a date to pixel offset from rangeStart
-  function dateToPx(date: Date): number {
-    const totalMonths = months.length
-    // Find month index
-    const mIdx = months.findIndex(m => m.year === date.getFullYear() && m.month === date.getMonth())
-    if (mIdx < 0) {
-      if (date < new Date(months[0].year, months[0].month, 1)) return 0
-      return totalMonths * COL_W
-    }
-    return mIdx * COL_W + monthFraction(date, date.getFullYear(), date.getMonth()) * COL_W
-  }
-
-  const todayPx = todayMonthIdx >= 0 ? todayMonthIdx * COL_W + todayFrac * COL_W : -1
-  const ROW_H = 56
-
-  return (
-    <div style={{ background: '#161614', border: '1px solid #222220', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
-      {/* Header */}
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid #222220', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e6df' }}>Master timeline</div>
-          <div style={{ fontSize: 11, color: '#5F5E5A', marginTop: 2 }}>
-            One bar per project · Fill = % complete · Blue line = today
-          </div>
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#888780' }}>
-            <div style={{ width: 2, height: 14, background: '#85B7EB', borderRadius: 1 }} />
-            Today
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#888780' }}>
-            <div style={{ width: 20, height: 12, borderRadius: 3, background: 'rgba(55,138,221,0.25)', border: '1px solid rgba(55,138,221,0.5)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '40%', background: '#378ADD' }} />
-            </div>
-            Progress fill
-          </div>
-        </div>
-      </div>
-
-      <div style={{ overflowX: 'auto' }}>
-        {/* Month header row */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #222220', background: '#161614', position: 'sticky', top: 0, zIndex: 5 }}>
-          <div style={{ minWidth: LABEL_W, maxWidth: LABEL_W, padding: '8px 16px', fontSize: 10, fontWeight: 700, color: '#5F5E5A', textTransform: 'uppercase', letterSpacing: '.07em', borderRight: '1px solid #222220', flexShrink: 0 }}>
-            Project
-          </div>
-          {months.map((m, i) => {
-            const isCur = m.year === today.getFullYear() && m.month === today.getMonth()
-            return (
-              <div key={i} style={{ minWidth: COL_W, width: COL_W, textAlign: 'center', padding: '8px 4px', fontSize: 11, fontWeight: isCur ? 700 : 500, color: isCur ? '#85B7EB' : '#888780', background: isCur ? 'rgba(55,138,221,0.06)' : 'transparent', borderRight: '1px solid #1e1e1c', flexShrink: 0 }}>
-                {m.shortLabel}
-                <div style={{ fontSize: 9, color: isCur ? '#378ADD' : '#444441' }}>{m.year}</div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Project rows */}
-        {projects.map((p, pi) => {
-          const tasks   = projectTasks[p.id] || []
-          const c       = taskCounts[p.id] || {}
-          const total   = Math.max(c.total || 1, 1)
-          const done    = c.done || 0
-          const pct     = Math.round(done / total * 100)
-          const ov      = c.overdue || 0
-          const rk      = c.risk || 0
-          const barColor = ov > 0 ? '#E24B4A' : rk > 0 ? '#EF9F27' : p.color
-
-          const dates     = tasks.flatMap(t => [parseDate(t.start_date), parseDate(t.end_date)])
-          const projStart = dates.length ? new Date(Math.min(...dates.map(d => d.getTime()))) : null
-          const projEnd   = dates.length ? new Date(Math.max(...dates.map(d => d.getTime()))) : null
-
-          const barLeft  = projStart ? dateToPx(projStart) : null
-          const barRight = projEnd   ? dateToPx(projEnd)   : null
-          const totalPx  = months.length * COL_W
-
-          return (
-            <div key={p.id} style={{ display: 'flex', borderBottom: pi === projects.length - 1 ? 'none' : '1px solid #1a1a18', position: 'relative', height: ROW_H }}>
-              {/* Project label — sticky */}
-              <div style={{ minWidth: LABEL_W, maxWidth: LABEL_W, height: ROW_H, display: 'flex', alignItems: 'center', padding: '0 16px', borderRight: '1px solid #222220', flexShrink: 0, position: 'sticky', left: 0, zIndex: 3, background: '#161614' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#e8e6df', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    {p.code && <div style={{ fontSize: 10, color: '#5F5E5A' }}>{p.code}</div>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Timeline area — month cells + overlaid bar */}
-              <div style={{ position: 'relative', flex: 1, minWidth: totalPx, height: ROW_H }}>
-                {/* Month grid lines */}
-                {months.map((m, mi) => {
-                  const isCur = m.year === today.getFullYear() && m.month === today.getMonth()
-                  return (
-                    <div key={mi} style={{ position: 'absolute', top: 0, bottom: 0, left: mi * COL_W, width: COL_W, borderRight: '1px solid #1a1a18', background: isCur ? 'rgba(55,138,221,0.03)' : 'transparent' }} />
-                  )
-                })}
-
-                {/* Today line */}
-                {todayPx >= 0 && (
-                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: todayPx, width: 2, background: '#85B7EB', opacity: 0.85, zIndex: 4, pointerEvents: 'none' }} />
-                )}
-
-                {/* Fix 2: Seamless bar — single absolute div spanning full project */}
-                {barLeft !== null && barRight !== null && barRight > barLeft && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '50%', transform: 'translateY(-50%)',
-                    left: barLeft + 3,
-                    width: barRight - barLeft - 6,
-                    height: 34,
-                    borderRadius: 8,
-                    background: barColor + '22',
-                    border: `1.5px solid ${barColor}55`,
-                    overflow: 'hidden',
-                    zIndex: 2,
-                    minWidth: 20,
-                  }}>
-                    {/* Completion fill */}
-                    <div style={{
-                      position: 'absolute', top: 0, left: 0, bottom: 0,
-                      width: `${pct}%`,
-                      background: barColor,
-                      opacity: 0.55,
-                      borderRadius: '6px 0 0 6px',
-                      transition: 'width 0.4s',
-                    }} />
-                    {/* Label */}
-                    <div style={{
-                      position: 'absolute', inset: 0,
-                      display: 'flex', alignItems: 'center',
-                      paddingLeft: 10, gap: 6,
-                      fontSize: 11, fontWeight: 700, color: '#e8e6df',
-                      pointerEvents: 'none',
-                    }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                      <span style={{ opacity: 0.7, flexShrink: 0 }}>· {pct}%</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* No tasks placeholder */}
-                {!projStart && (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', paddingLeft: 12 }}>
-                    <span style={{ fontSize: 11, color: '#3a3a37', fontStyle: 'italic' }}>No tasks added yet</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
-
-        {projects.length === 0 && (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: '#5F5E5A', fontSize: 13 }}>No projects yet.</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // New Project Modal
 function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: (p: Project) => void }) {
   const router = useRouter()
@@ -274,22 +100,164 @@ function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreate
   )
 }
 
+// Fix 2: Master Timeline using absolute positioning overlay — seamless single bar
+function MasterTimeline({ projects, projectTasks, taskCounts }: {
+  projects: Project[]
+  projectTasks: Record<string, Task[]>
+  taskCounts: Record<string, Record<string, number>>
+}) {
+  const today      = new Date()
+  const rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1) // 1 month back, aligned to month start
+  const rangeEnd   = new Date(today.getFullYear() + 1, today.getMonth(), 0)
+  const months     = buildMonths(rangeStart, rangeEnd)
+  const COL_W      = 80
+
+  // Total timeline width in days
+  const totalDays = Math.round((rangeEnd.getTime() - rangeStart.getTime()) / 86400000) + 1
+
+  function dateToPercent(date: Date): number {
+    const clamped = new Date(Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), date.getTime())))
+    return (clamped.getTime() - rangeStart.getTime()) / (rangeEnd.getTime() - rangeStart.getTime()) * 100
+  }
+
+  const todayPct = dateToPercent(today)
+  const totalWidth = months.length * COL_W
+
+  return (
+    <div style={{ background: '#161614', border: '1px solid #222220', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+      {/* Header */}
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid #222220', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e6df' }}>Master timeline</div>
+          <div style={{ fontSize: 11, color: '#5F5E5A', marginTop: 2 }}>
+            One bar per project · Fill = % complete · {rangeStart.toLocaleString('en', { month: 'short', year: 'numeric' })} — {rangeEnd.toLocaleString('en', { month: 'short', year: 'numeric' })}
+          </div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#888780' }}>
+            <div style={{ width: 2, height: 14, background: '#85B7EB', borderRadius: 1 }} />
+            Today
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#888780' }}>
+            <div style={{ width: 22, height: 10, borderRadius: 3, background: 'rgba(55,138,221,0.2)', border: '1px solid rgba(55,138,221,0.4)', overflow: 'hidden', position: 'relative' }}>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '35%', background: '#378ADD', opacity: 0.8 }} />
+            </div>
+            Progress
+          </div>
+        </div>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: 180 + totalWidth }}>
+          {/* Month header row */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #222220' }}>
+            {/* Sticky project label */}
+            <div style={{ minWidth: 180, width: 180, flexShrink: 0, padding: '8px 16px', fontSize: 10, fontWeight: 700, color: '#5F5E5A', textTransform: 'uppercase', letterSpacing: '.07em', borderRight: '1px solid #222220', background: '#161614' }}>
+              Project
+            </div>
+            {/* Month columns */}
+            {months.map((m, i) => {
+              const isCurrent = m.year === today.getFullYear() && m.month === today.getMonth()
+              return (
+                <div key={i} style={{ minWidth: COL_W, width: COL_W, flexShrink: 0, textAlign: 'center', padding: '8px 4px', fontSize: 11, fontWeight: isCurrent ? 700 : 500, color: isCurrent ? '#85B7EB' : '#888780', background: isCurrent ? 'rgba(55,138,221,0.06)' : 'transparent', borderRight: '1px solid #1e1e1c' }}>
+                  {m.shortLabel}
+                  <div style={{ fontSize: 9, color: isCurrent ? '#378ADD' : '#444441', marginTop: 1 }}>{m.year}</div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Project rows */}
+          {projects.map((p, pi) => {
+            const tasks = projectTasks[p.id] || []
+            const c     = taskCounts[p.id] || {}
+            const total = Math.max(c.total || 1, 1)
+            const pct   = Math.round((c.done || 0) / total * 100)
+            const ov    = c.overdue || 0
+            const rk    = c.risk || 0
+
+            const dates     = tasks.flatMap(t => [parseDate(t.start_date), parseDate(t.end_date)])
+            const projStart = dates.length ? new Date(Math.min(...dates.map(d => d.getTime()))) : null
+            const projEnd   = dates.length ? new Date(Math.max(...dates.map(d => d.getTime()))) : null
+
+            const barColor  = ov > 0 ? '#E24B4A' : rk > 0 ? '#EF9F27' : p.color
+            const leftPct   = projStart ? dateToPercent(projStart) : 0
+            const rightPct  = projEnd   ? dateToPercent(projEnd)   : 0
+            const widthPct  = rightPct - leftPct
+
+            const ROW_H = 56
+
+            return (
+              <div key={p.id} style={{ display: 'flex', borderBottom: pi === projects.length - 1 ? 'none' : '1px solid #1a1a18', height: ROW_H }}>
+                {/* Project label — sticky */}
+                <div style={{ minWidth: 180, width: 180, flexShrink: 0, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 8, borderRight: '1px solid #222220', background: '#161614' }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#e8e6df', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    {p.code && <div style={{ fontSize: 10, color: '#5F5E5A', marginTop: 1 }}>{p.code}</div>}
+                  </div>
+                </div>
+
+                {/* Timeline area — relative positioned, bars are absolute overlays */}
+                <div style={{ flex: 1, position: 'relative', height: ROW_H }}>
+                  {/* Month grid lines */}
+                  {months.map((m, i) => {
+                    const isCurrent = m.year === today.getFullYear() && m.month === today.getMonth()
+                    return (
+                      <div key={i} style={{ position: 'absolute', top: 0, bottom: 0, left: i * COL_W, width: COL_W, borderRight: '1px solid #1a1a18', background: isCurrent ? 'rgba(55,138,221,0.03)' : 'transparent', pointerEvents: 'none' }} />
+                    )
+                  })}
+
+                  {/* Fix 2: Single seamless bar — absolutely positioned across full span */}
+                  {projStart && projEnd && widthPct > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%', transform: 'translateY(-50%)',
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
+                      height: 34,
+                      borderRadius: 8,
+                      background: barColor + '22',
+                      border: `1.5px solid ${barColor}55`,
+                      overflow: 'hidden',
+                      zIndex: 2,
+                    }}>
+                      {/* Completion fill */}
+                      <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${pct}%`, background: barColor, opacity: 0.5, transition: 'width 0.4s' }} />
+                      {/* Label */}
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', paddingLeft: 10, fontSize: 11, fontWeight: 700, color: '#e8e6df', pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'hidden', zIndex: 1 }}>
+                        {p.name} &nbsp;<span style={{ fontWeight: 400, color: barColor, opacity: 0.9 }}>{pct}%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No tasks placeholder */}
+                  {(!projStart || !projEnd) && (
+                    <div style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: 12, fontSize: 11, color: '#333332', fontStyle: 'italic' }}>No tasks yet</div>
+                  )}
+
+                  {/* Today line */}
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${todayPct}%`, width: 2, background: '#85B7EB', opacity: 0.75, zIndex: 5, pointerEvents: 'none' }} />
+                </div>
+              </div>
+            )
+          })}
+
+          {projects.length === 0 && (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: '#5F5E5A', fontSize: 13 }}>No projects yet.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MasterDashboard() {
   const [projects, setProjects]             = useState<Project[]>([])
   const [taskCounts, setTaskCounts]         = useState<Record<string, Record<string, number>>>({})
   const [projectTasks, setProjectTasks]     = useState<Record<string, Task[]>>({})
   const [loading, setLoading]               = useState(true)
   const [showNewProject, setShowNewProject] = useState(false)
-  const [view, setView]                     = useState<'cards' | 'timeline'>('cards')
-
-  const today      = new Date()
-  const rangeStart = new Date(today); rangeStart.setDate(rangeStart.getDate() - 28); rangeStart.setDate(1)
-  const rangeEnd   = new Date(today); rangeEnd.setFullYear(rangeEnd.getFullYear() + 1)
-  const months     = buildMonths(rangeStart, rangeEnd)
-  const COL_W      = 80
-
-  const todayMonthIdx = months.findIndex(m => m.year === today.getFullYear() && m.month === today.getMonth())
-  const todayFrac     = todayMonthIdx >= 0 ? monthFraction(today, today.getFullYear(), today.getMonth()) : -1
 
   useEffect(() => { load() }, [])
 
@@ -309,20 +277,11 @@ export default function MasterDashboard() {
 
   const sidebarProjects = projects.map(p => ({ id: p.id, name: p.name, color: p.color }))
   const totalOverdue = projects.reduce((a, p) => a + (taskCounts[p.id]?.overdue || 0), 0)
-  const totalRisk    = projects.reduce((a, p) => a + (taskCounts[p.id]?.risk    || 0), 0)
+  const totalRisk    = projects.reduce((a, p) => a + (taskCounts[p.id]?.risk || 0), 0)
   const totalWip     = projects.reduce((a, p) => a + ((taskCounts[p.id]?.wip || 0) + (taskCounts[p.id]?.review || 0)), 0)
-  const totalDone    = projects.reduce((a, p) => a + (taskCounts[p.id]?.done    || 0), 0)
+  const totalDone    = projects.reduce((a, p) => a + (taskCounts[p.id]?.done || 0), 0)
 
-  const tabBtn = (active: boolean): React.CSSProperties => ({
-    padding: '7px 16px', fontSize: 12, cursor: 'pointer',
-    fontWeight: active ? 600 : 400,
-    color: active ? '#e8e6df' : '#888780',
-    background: 'none', border: 'none',
-    borderBottom: `2px solid ${active ? '#378ADD' : 'transparent'}`,
-    fontFamily: 'inherit', marginBottom: -1,
-  })
 
-  const timelineProps = { projects, projectTasks, taskCounts, months, today, todayMonthIdx, todayFrac, rangeStart, rangeEnd, COL_W }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0e0e0c' }}>
@@ -342,6 +301,7 @@ export default function MasterDashboard() {
             <div style={{ color: '#888780', padding: '40px 0', textAlign: 'center' }}>Loading...</div>
           ) : (
             <>
+              {/* Stats */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 20 }}>
                 <StatCard label="Total overdue"   value={totalOverdue} sub="across all projects" color={totalOverdue > 0 ? 'red' : 'default'} />
                 <StatCard label="At risk"         value={totalRisk}    sub="need attention"       color={totalRisk > 0 ? 'amber' : 'default'} />
@@ -349,18 +309,18 @@ export default function MasterDashboard() {
                 <StatCard label="Done this cycle" value={totalDone}    sub="tasks completed"      color="green" />
               </div>
 
-              <div style={{ display: 'flex', borderBottom: '1px solid #222220', marginBottom: 20 }}>
-                <button style={tabBtn(view === 'cards')}    onClick={() => setView('cards')}>Project cards</button>
-                <button style={tabBtn(view === 'timeline')} onClick={() => setView('timeline')}>Master timeline</button>
-              </div>
+              {/* Tabs */}
+              <div style={{ marginBottom: 20 }} />
 
               {/* ── CARDS VIEW ── */}
-              {view === 'cards' && (
+              {(
                 <>
                   <div style={{ marginBottom: 14 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#e8e6df', marginBottom: 2 }}>All projects</div>
                     <div style={{ fontSize: 11, color: '#888780' }}>{projects.length} production{projects.length !== 1 ? 's' : ''}</div>
                   </div>
+
+                  {/* Project cards */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, marginBottom: 20 }}>
                     {projects.map(p => {
                       const c = taskCounts[p.id] || {}
@@ -387,7 +347,10 @@ export default function MasterDashboard() {
                               ))}
                             </div>
                             <ProgressBar pct={pct} color={p.color} height={4} />
-                            <div style={{ fontSize: 10, color: '#888780', textAlign: 'right', marginTop: 5, fontWeight: 500 }}>{pct}% complete</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
+                              <Link href={`/${p.id}/settings`} onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: '#888780', textDecoration: 'none', padding: '2px 6px', borderRadius: 4, border: '1px solid #2a2a27', background: '#111110' }}>⚙ Settings</Link>
+                              <span style={{ fontSize: 10, color: '#888780', fontWeight: 500 }}>{pct}% complete</span>
+                            </div>
                           </div>
                         </Link>
                       )
@@ -398,10 +361,10 @@ export default function MasterDashboard() {
                     </div>
                   </div>
 
-                  {/* Fix 3: Master timeline above cross-project comparison */}
-                  {projects.length > 0 && <MasterTimelineGantt {...timelineProps} />}
+                  {/* Fix 3: Master timeline ABOVE cross-project comparison */}
+                  <MasterTimeline projects={projects} projectTasks={projectTasks} taskCounts={taskCounts} />
 
-                  {/* Cross-project comparison table */}
+                  {/* Cross-project table */}
                   {projects.length > 0 && (
                     <div style={{ background: '#161614', border: '1px solid #222220', borderRadius: 10, overflow: 'hidden' }}>
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid #222220' }}>
@@ -427,7 +390,7 @@ export default function MasterDashboard() {
                                 <tr key={p.id} style={{ borderBottom: '1px solid #1a1a18' }}>
                                   <td style={{ padding: '10px 14px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
+                                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: p.color }} />
                                       <span style={{ fontWeight: 700, color: '#e8e6df' }}>{p.name}</span>
                                     </div>
                                   </td>
@@ -436,7 +399,7 @@ export default function MasterDashboard() {
                                       <div style={{ width: 64, height: 5, background: '#1e1e1c', borderRadius: 3, overflow: 'hidden' }}>
                                         <div style={{ width: `${pct}%`, height: '100%', background: p.color, borderRadius: 3 }} />
                                       </div>
-                                      <span style={{ fontSize: 11, color: '#888780', fontWeight: 600 }}>{pct}%</span>
+                                      <span style={{ color: '#888780', fontWeight: 600 }}>{pct}%</span>
                                     </div>
                                   </td>
                                   <td style={{ padding: '10px 14px', color: ov > 0 ? '#F09595' : '#888780', fontWeight: ov > 0 ? 700 : 400 }}>{ov > 0 ? ov : '—'}</td>
@@ -458,8 +421,6 @@ export default function MasterDashboard() {
                 </>
               )}
 
-              {/* ── MASTER TIMELINE TAB ── */}
-              {view === 'timeline' && <MasterTimelineGantt {...timelineProps} />}
             </>
           )}
         </div>
