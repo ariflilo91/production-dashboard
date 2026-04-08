@@ -1,7 +1,6 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/components/AuthProvider'
 
 interface SidebarProps {
   projects?: { id: string; name: string; color: string }[]
@@ -30,7 +29,6 @@ function SectionLabel({ text }: { text: string }) {
 
 export default function Sidebar({ projects = [], activeProjectId }: SidebarProps) {
   const pathname = usePathname()
-  const { isAdmin } = useAuth()
 
   return (
     <div style={{ width: 220, minWidth: 220, background: 'var(--bg-surface)', borderRight: '1px solid var(--border-sub)', display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0, overflowY: 'auto' }}>
@@ -64,9 +62,6 @@ export default function Sidebar({ projects = [], activeProjectId }: SidebarProps
       )}
 
       <div style={{ padding: 8, borderTop: '1px solid var(--border-sub)' }}>
-        <NavItem href="/my-tasks" label="My tasks" active={pathname === '/my-tasks'} />
-        {isAdmin && <NavItem href="/team" label="Team management" active={pathname === '/team'} />}
-        <div style={{ height: 6 }} />
         <Link href="/new-project" style={{ textDecoration: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 8px', borderRadius: 7, border: '1.5px dashed var(--border)', cursor: 'pointer', color: 'var(--text-dim)', fontSize: 11, fontWeight: 600 }}>
             <span style={{ fontSize: 15, lineHeight: 1, color: 'var(--text-faint)' }}>+</span>
