@@ -1,14 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code  = searchParams.get('code')
   const error = searchParams.get('error')
 
-  // Handle errors from Supabase
   if (error) {
-    console.error('Auth error:', error, searchParams.get('error_description'))
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
@@ -18,17 +16,21 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (exchangeError) {
-      console.error('Exchange error:', exchangeError)
+    if (exchangeError || !data.session) {
       return NextResponse.redirect(`${origin}/login?error=auth_failed`)
     }
 
-    // Success — AuthProvider will handle routing (pending vs approved)
-    return NextResponse.redirect(`${origin}/`)
+    const { access_token, refresh_token } = data.session
+    const response = NextResponse.redirect(`${origin}/`)
+
+    // Write tokens as cookies so client-side Supabase can restore the session
+    response.cookies.set('sb-access-token',  access_token,  { path: '/', httpOnly: false, sameSite: 'lax', secure: true, maxAge: 3600 })
+    response.cookies.set('sb-refresh-token', refresh_token, { path: '/', httpOnly: false, sameSite: 'lax', secure: true, maxAge: 86400 * 7 })
+
+    return response
   }
 
-  // No code and no error — something went wrong
   return NextResponse.redirect(`${origin}/login?error=auth_failed`)
 }

@@ -19,8 +19,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router   = useRouter()
   const pathname = usePathname()
 
-  useEffect(() => {
-    async function init() {
+  async function loadMember() {
+    try {
+      // Try to restore session from cookies if set by callback
+      const accessToken  = getCookie('sb-access-token')
+      const refreshToken = getCookie('sb-refresh-token')
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        if (!error) {
+          // Clear cookies after restoring — Supabase will manage its own storage
+          deleteCookie('sb-access-token')
+          deleteCookie('sb-refresh-token')
+        }
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
 
       if (!session) {
@@ -32,43 +48,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const m = await getCurrentMember()
 
       if (!m) {
-        // Signed in with Google but no team_member record yet
-        // (trigger may not have run) — sign out and retry
         await supabase.auth.signOut()
         router.replace('/login')
         setLoading(false)
         return
       }
 
-      if (m.status === 'pending') {
-        // Registered but not approved yet
-        if (pathname !== '/pending') router.replace('/pending')
-        setMember(m)
-        setLoading(false)
-        return
-      }
-
-      // Approved — allow access
       setMember(m)
-      if (PUBLIC_PATHS.includes(pathname)) router.replace('/')
-      setLoading(false)
-    }
 
-    init()
+      if (m.status === 'pending') {
+        if (pathname !== '/pending') router.replace('/pending')
+      } else if (PUBLIC_PATHS.includes(pathname)) {
+        router.replace('/')
+      }
+    } catch (err) {
+      console.error('Auth init error:', err)
+      if (!PUBLIC_PATHS.includes(pathname)) router.replace('/login')
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadMember()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         setMember(null)
         router.replace('/login')
-      } else if (event === 'SIGNED_IN' && session) {
+      } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
         const m = await getCurrentMember()
+        if (!m) { router.replace('/login'); return }
         setMember(m)
-        if (m?.status === 'pending') router.replace('/pending')
-        else if (m?.status === 'approved') router.replace('/')
+        if (m.status === 'pending') router.replace('/pending')
+        else if (PUBLIC_PATHS.includes(pathname)) router.replace('/')
       }
     })
+
     return () => subscription.unsubscribe()
-  }, [pathname, router])
+  }, []) // only on mount
 
   if (loading && !PUBLIC_PATHS.includes(pathname)) return (
     <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
@@ -81,6 +98,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthCtx.Provider>
   )
+}
+
+// Cookie helpers
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  return match ? decodeURIComponent(match[2]) : null
+}
+
+function deleteCookie(name: string) {
+  if (typeof document === 'undefined') return
+  document.cookie = `${name}=; path=/; max-age=0`
 }
 
 export function useAuth() { return useContext(AuthCtx) }
