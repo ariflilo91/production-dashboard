@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
+import { useAuth } from '@/components/AuthProvider'
 import TopNav from '@/components/TopNav'
 import { StatCard } from '@/components/UI'
 import {
-  supabase, getProjects, getEpisodes, getDepartments, getTasks, getHolidays,
+  supabase, getProjects, getEpisodes, getDepartments, getTasks, getHolidays, getTeamMembers,
   upsertTask, deleteTask as dbDeleteTask, upsertHoliday, deleteHoliday,
   createEpisode, deleteEpisode,
-  Project, Episode, Department, Task, Holiday,
+  Project, Episode, Department, Task, Holiday, TeamMember,
 } from '@/lib/supabase'
 import {
   buildDays, dayDiff, addDays, parseDate, formatDate, formatDateInput,
@@ -135,6 +136,7 @@ function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
 }) {
   const [newName, setNewName] = useState('')
   const [newDate, setNewDate] = useState('')
+  const [assignedTo, setAssignedTo] = useState<string>(task?.assigned_to ?? '')
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
 
@@ -189,9 +191,10 @@ function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
 }
 
 // ─── Task Modal ───────────────────────────────────────
-function TaskModal({ modal, departments, episodes, onSave, onDelete, onClose }: {
+function TaskModal({ modal, departments, episodes, teamMembers, isAdmin, onSave, onDelete, onClose }: {
   modal: { type: 'edit' | 'add'; task?: Task; deptId?: string }
   departments: Department[]; episodes: Episode[]
+  teamMembers: TeamMember[]; isAdmin: boolean
   onSave: (data: Partial<Task>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onClose: () => void
@@ -203,6 +206,7 @@ function TaskModal({ modal, departments, episodes, onSave, onDelete, onClose }: 
   const [status, setStatus]   = useState<Task['status']>(task?.status || 'upcoming')
   const [startDate, setStart] = useState(task?.start_date || '')
   const [endDate, setEnd]     = useState(task?.end_date || '')
+  const [assignedTo, setAssignedTo] = useState<string>(task?.assigned_to ?? '')
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
 
@@ -216,7 +220,7 @@ function TaskModal({ modal, departments, episodes, onSave, onDelete, onClose }: 
     if (endDate < startDate) { setError('End date must be after start date.'); return }
     setSaving(true); setError('')
     try {
-      await onSave({ id: task?.id, department_id: deptId, episode_id: epId, stage_code: stage, status, start_date: startDate, end_date: endDate })
+      await onSave({ id: task?.id, department_id: deptId, episode_id: epId, stage_code: stage, status, start_date: startDate, end_date: endDate, assigned_to: assignedTo || null })
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to save.'); setSaving(false) }
   }
 
@@ -257,6 +261,15 @@ function TaskModal({ modal, departments, episodes, onSave, onDelete, onClose }: 
           {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
 
+        {isAdmin && (
+          <>
+            <label style={lbl}>Assign to</label>
+            <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} style={{ ...modalInp, marginBottom: 12 }}>
+              <option value="">Unassigned</option>
+              {teamMembers.map(m => <option key={m.id} value={m.id}>{m.display_name || m.email}</option>)}
+            </select>
+          </>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           <div>
             <label style={lbl}>Start date</label>
@@ -311,18 +324,21 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const [modal, setModal]               = useState<{ type: 'edit' | 'add'; task?: Task; deptId?: string } | null>(null)
   const [showHolidays, setShowHolidays] = useState(false)
   const [showEpisodes, setShowEpisodes] = useState(false)
+  const [teamMembers, setTeamMembers]   = useState<TeamMember[]>([])
+  const { isAdmin } = useAuth()
   const today = new Date()
   const dragRef = useRef<{ id: string; side: 'l' | 'r' | 'move'; startX: number; origStart: Date; origEnd: Date; lastCols: number } | null>(null)
 
   useEffect(() => {
     async function load() {
       const { data: proj } = await supabase.from('projects').select('*').eq('id', projectId).single()
-      const [projs, eps, depts, tks, hols] = await Promise.all([
+      const [projs, eps, depts, tks, hols, mems] = await Promise.all([
         getProjects(), getEpisodes(projectId), getDepartments(projectId),
-        getTasks(projectId), getHolidays(projectId),
+        getTasks(projectId), getHolidays(projectId), getTeamMembers(),
       ])
       setProject(proj); setAllProjects(projs); setEpisodes(eps)
-      setDepartments(depts); setTasks(tks); setHolidays(hols); setLoading(false)
+      setDepartments(depts); setTasks(tks); setHolidays(hols)
+      setTeamMembers(mems); setLoading(false)
     }
     load()
   }, [projectId])
@@ -706,7 +722,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
         </div>
       )}
 
-      {modal && <TaskModal modal={modal} departments={departments} episodes={episodes} onSave={saveTask} onDelete={removeTask} onClose={() => setModal(null)} />}
+      {modal && <TaskModal modal={modal} departments={departments} episodes={episodes} teamMembers={teamMembers} isAdmin={isAdmin} onSave={saveTask} onDelete={removeTask} onClose={() => setModal(null)} />}
       {showHolidays && <HolidaysModal holidays={holidays} projectId={projectId} onAdd={h => setHolidays(prev => [...prev, h])} onRemove={id => setHolidays(prev => prev.filter(h => h.id !== id))} onClose={() => setShowHolidays(false)} />}
       {showEpisodes && <EpisodeModal episodes={episodes} projectId={projectId} onAdd={ep => setEpisodes(prev => [...prev, ep].sort((a, b) => a.name.localeCompare(b.name)))} onDelete={id => setEpisodes(prev => prev.filter(e => e.id !== id))} onClose={() => setShowEpisodes(false)} />}
     </div>
