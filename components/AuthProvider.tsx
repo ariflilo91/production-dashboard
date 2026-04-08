@@ -11,7 +11,7 @@ type AuthCtxType = {
 
 const AuthCtx = createContext<AuthCtxType>({ member: null, loading: true, isAdmin: false })
 
-const PUBLIC_PATHS = ['/login', '/pending', '/auth/callback']
+const PUBLIC_PATHS = ['/login', '/pending', '/auth/callback', '/auth/reset']
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [member, setMember]   = useState<TeamMember | null>(null)

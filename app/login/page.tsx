@@ -10,10 +10,13 @@ function LoginContent() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [checking, setChecking] = useState(true)
-  const [message, setMessage]   = useState('')
-  const [error, setError]       = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [checking, setChecking]     = useState(true)
+  const [message, setMessage]       = useState('')
+  const [error, setError]           = useState('')
+  const [showReset, setShowReset]   = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetSent, setResetSent]   = useState(false)
 
   const errorParam = params.get('error')
 
@@ -23,6 +26,18 @@ function LoginContent() {
       else setChecking(false)
     })
   }, [router])
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true); setError('')
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      resetEmail.trim(),
+      { redirectTo: `${window.location.origin}/auth/reset` }
+    )
+    if (resetError) setError(resetError.message)
+    else setResetSent(true)
+    setLoading(false)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -177,7 +192,37 @@ function LoginContent() {
             >
               {loading ? '...' : mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
+            {mode === 'login' && (
+              <button type="button" onClick={() => { setShowReset(true); setError(''); setMessage('') }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: 11, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit', textDecoration: 'underline' }}>
+                Forgot password?
+              </button>
+            )}
           </form>
+
+          {/* Reset password form */}
+          {showReset && !resetSent && (
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border-sub)' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>Reset password</div>
+              <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <input type="email" value={resetEmail} onChange={e => setResetEmail(e.target.value)}
+                  placeholder="your@email.com" required style={inp} />
+                <button type="submit" disabled={loading} style={{ height: 40, borderRadius: 8, background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid var(--blue-bdr)', fontSize: 13, fontWeight: 700, cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  {loading ? '...' : 'Send reset link'}
+                </button>
+                <button type="button" onClick={() => setShowReset(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Cancel
+                </button>
+              </form>
+            </div>
+          )}
+
+          {resetSent && (
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border-sub)', background: 'var(--green-bg)', border: '1px solid var(--green-bdr)', borderRadius: 8, padding: '12px 14px', fontSize: 12, color: 'var(--green)', lineHeight: 1.6 }}>
+              ✓ Reset link sent to <strong>{resetEmail}</strong>. Check your inbox and click the link to set a new password.
+            </div>
+          )}
 
           {mode === 'register' && (
             <div style={{ marginTop: 14, fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', lineHeight: 1.6 }}>
