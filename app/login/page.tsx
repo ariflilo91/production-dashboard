@@ -1,26 +1,66 @@
 'use client'
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signInWithGoogle, supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 function LoginContent() {
-  const router   = useRouter()
-  const params   = useSearchParams()
+  const router = useRouter()
+  const params = useSearchParams()
+  const [mode, setMode]         = useState<'login' | 'register'>('login')
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
   const [loading, setLoading]   = useState(false)
   const [checking, setChecking] = useState(true)
-  const error = params.get('error')
+  const [message, setMessage]   = useState('')
+  const [error, setError]       = useState('')
+
+  const errorParam = params.get('error')
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) router.replace('/')
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace('/')
       else setChecking(false)
     })
   }, [router])
 
-  async function handleGoogleLogin() {
-    setLoading(true)
-    try { await signInWithGoogle() }
-    catch { setLoading(false) }
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(''); setMessage(''); setLoading(true)
+
+    if (mode === 'register') {
+      if (password !== confirmPw) {
+        setError('Passwords do not match.'); setLoading(false); return
+      }
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters.'); setLoading(false); return
+      }
+
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
+      })
+
+      if (signUpError) {
+        setError(signUpError.message)
+      } else {
+        setMessage('Account created! Check your email to confirm, then wait for admin approval before signing in.')
+      }
+    } else {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+
+      if (signInError) {
+        setError(signInError.message)
+      } else if (data.session) {
+        router.replace('/')
+      }
+    }
+
+    setLoading(false)
   }
 
   if (checking) return (
@@ -29,11 +69,19 @@ function LoginContent() {
     </div>
   )
 
+  const inp: React.CSSProperties = {
+    width: '100%', height: 42, padding: '0 14px', borderRadius: 9,
+    border: '1px solid var(--border)', background: 'var(--bg-hover)',
+    color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit',
+    outline: 'none',
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
       <div style={{ width: '100%', maxWidth: 380, padding: '0 20px' }}>
+
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--blue-bg)', border: '1px solid var(--blue-bdr)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <svg width="28" height="28" viewBox="0 0 14 14" fill="none">
               <rect x="1" y="1" width="5" height="5" rx="1.5" fill="var(--blue)" />
@@ -46,43 +94,79 @@ function LoginContent() {
             Durioo In-house Production
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>
-            Sign in to access your studio dashboard
+            {mode === 'login' ? 'Sign in to your account' : 'Create a new account'}
           </div>
         </div>
 
-        {error === 'auth_failed' && (
-          <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red-bdr)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: 'var(--red)', textAlign: 'center' }}>
-            Sign in failed. Please try again.
-          </div>
-        )}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-sub)', borderRadius: 14, padding: 24 }}>
 
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-sub)', borderRadius: 14, padding: 28, textAlign: 'center' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 24, lineHeight: 1.6 }}>
-            Sign in with your Google account.<br />
-            New users require admin approval before accessing the dashboard.
+          {/* Tab toggle */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-sub)', marginBottom: 20 }}>
+            {(['login', 'register'] as const).map(m => (
+              <button key={m} onClick={() => { setMode(m); setError(''); setMessage('') }} style={{ flex: 1, padding: '8px 0', fontSize: 13, fontWeight: mode === m ? 700 : 400, color: mode === m ? 'var(--text-primary)' : 'var(--text-dim)', background: 'none', border: 'none', borderBottom: `2px solid ${mode === m ? 'var(--blue-mid)' : 'transparent'}`, cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1 }}>
+                {m === 'login' ? 'Sign in' : 'Register'}
+              </button>
+            ))}
           </div>
 
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            style={{
-              width: '100%', height: 46, borderRadius: 10,
-              background: loading ? 'var(--bg-hover)' : 'var(--bg-surface)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)', fontSize: 14, fontWeight: 600,
-              cursor: loading ? 'wait' : 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              transition: 'all 0.15s',
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18">
-              <path d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z" fill="#4285F4"/>
-              <path d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z" fill="#34A853"/>
-              <path d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z" fill="#FBBC05"/>
-              <path d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z" fill="#EA4335"/>
-            </svg>
-            {loading ? 'Signing in...' : 'Continue with Google'}
-          </button>
+          {errorParam === 'auth_failed' && (
+            <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red-bdr)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: 'var(--red)' }}>
+              Authentication failed. Please try again.
+            </div>
+          )}
+
+          {error && (
+            <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red-bdr)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: 'var(--red)' }}>
+              {error}
+            </div>
+          )}
+
+          {message && (
+            <div style={{ background: 'var(--green-bg)', border: '1px solid var(--green-bdr)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: 'var(--green)', lineHeight: 1.6 }}>
+              {message}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>Email</label>
+              <input
+                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com" required style={inp} autoFocus
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>Password</label>
+              <input
+                type="password" value={password} onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••" required minLength={6} style={inp}
+              />
+            </div>
+
+            {mode === 'register' && (
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block', marginBottom: 5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>Confirm password</label>
+                <input
+                  type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
+                  placeholder="••••••••" required style={inp}
+                />
+              </div>
+            )}
+
+            <button
+              type="submit" disabled={loading}
+              style={{ height: 44, borderRadius: 9, background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid var(--blue-bdr)', fontSize: 14, fontWeight: 700, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.6 : 1, fontFamily: 'inherit', marginTop: 4 }}
+            >
+              {loading ? '...' : mode === 'login' ? 'Sign in' : 'Create account'}
+            </button>
+          </form>
+
+          {mode === 'register' && (
+            <div style={{ marginTop: 14, fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', lineHeight: 1.6 }}>
+              After registering, an admin must approve your account before you can sign in.
+            </div>
+          )}
         </div>
       </div>
     </div>

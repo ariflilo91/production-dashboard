@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeProvider'
 import { useAuth } from '@/components/AuthProvider'
-import { signOut } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 interface TopNavProps {
   breadcrumbs: { label: string }[]
@@ -90,7 +90,7 @@ export default function TopNav({ breadcrumbs, actions }: TopNavProps) {
                   </Link>
                 )}
                 <div style={{ borderTop: '1px solid var(--border-sub)', margin: '4px 0' }} />
-                <button onClick={() => { signOut(); setShowMenu(false) }} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, fontSize: 12, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+                <button onClick={() => { supabase.auth.signOut(); setShowMenu(false) }} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, fontSize: 12, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
                   Sign out
                 </button>
               </div>

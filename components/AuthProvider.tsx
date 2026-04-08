@@ -11,7 +11,7 @@ type AuthCtxType = {
 
 const AuthCtx = createContext<AuthCtxType>({ member: null, loading: true, isAdmin: false })
 
-const PUBLIC_PATHS = ['/login', '/pending', '/auth/callback', '/auth/done']
+const PUBLIC_PATHS = ['/login', '/pending', '/auth/callback']
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [member, setMember]   = useState<TeamMember | null>(null)
@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const m = await getCurrentMember()
 
         if (!m) {
+          // User exists in auth but not team_members — sign them out
           await supabase.auth.signOut()
           router.replace('/login')
           setLoading(false)
@@ -47,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           router.replace('/')
         }
       } catch (err) {
-        console.error('Auth init error:', err)
+        console.error('Auth error:', err)
         if (!PUBLIC_PATHS.includes(pathname)) router.replace('/login')
       }
 

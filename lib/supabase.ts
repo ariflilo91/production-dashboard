@@ -45,15 +45,30 @@ export type DepartmentAssignment = {
 
 // ─── Auth ─────────────────────────────────────────────
 
-export async function signInWithGoogle() {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
+export async function signInWithMagicLink(email: string) {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      queryParams: { access_type: 'offline', prompt: 'consent' },
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
+      shouldCreateUser: true,
     },
   })
   if (error) throw error
+}
+
+export async function signInWithEmail(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) throw error
+  return data
+}
+
+export async function registerWithEmail(email: string, password: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email, password,
+    options: { emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback` }
+  })
+  if (error) throw error
+  return data
 }
 
 export async function signOut() {
