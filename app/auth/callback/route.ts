@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -7,29 +6,42 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error')
 
   if (error) {
+    console.error('OAuth error:', error, searchParams.get('error_description'))
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
   if (code) {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    try {
+      const { createClient } = require('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            flowType: 'pkce',
+            persistSession: false,
+          }
+        }
+      )
 
-    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+      const { data, error: err } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (exchangeError || !data.session) {
+      if (err || !data?.session) {
+        console.error('Exchange failed:', err?.message)
+        return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+      }
+
+      // Pass tokens to client via URL fragment — client will pick them up
+      const { access_token, refresh_token } = data.session
+      const redirectUrl = new URL(`${origin}/auth/done`)
+      redirectUrl.searchParams.set('at', access_token)
+      redirectUrl.searchParams.set('rt', refresh_token)
+      return NextResponse.redirect(redirectUrl.toString())
+
+    } catch (e) {
+      console.error('Callback exception:', e)
       return NextResponse.redirect(`${origin}/login?error=auth_failed`)
     }
-
-    const { access_token, refresh_token } = data.session
-    const response = NextResponse.redirect(`${origin}/`)
-
-    // Write tokens as cookies so client-side Supabase can restore the session
-    response.cookies.set('sb-access-token',  access_token,  { path: '/', httpOnly: false, sameSite: 'lax', secure: true, maxAge: 3600 })
-    response.cookies.set('sb-refresh-token', refresh_token, { path: '/', httpOnly: false, sameSite: 'lax', secure: true, maxAge: 86400 * 7 })
-
-    return response
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth_failed`)

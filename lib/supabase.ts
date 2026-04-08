@@ -6,10 +6,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
-    storageKey: 'durioo-auth',
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     detectSessionInUrl: true,
-    flowType: 'pkce',
+    storageKey: 'durioo-auth',
   },
 })
 
@@ -51,7 +49,7 @@ export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: 'https://production-dashboard-msd3sply5-ariflilo91s-projects.vercel.app/auth/callback',
+      redirectTo: `${window.location.origin}/auth/callback`,
       queryParams: { access_type: 'offline', prompt: 'consent' },
     },
   })
