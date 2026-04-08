@@ -1,9 +1,9 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signInWithGoogle, supabase } from '@/lib/supabase'
 
-export default function LoginPage() {
+function LoginContent() {
   const router   = useRouter()
   const params   = useSearchParams()
   const [loading, setLoading]   = useState(false)
@@ -86,5 +86,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
+        <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }
