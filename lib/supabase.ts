@@ -51,7 +51,7 @@ export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: 'https://production-dashboard-msd3sply5-ariflilo91s-projects.vercel.app/auth/callback',
       queryParams: { access_type: 'offline', prompt: 'consent' },
     },
   })
