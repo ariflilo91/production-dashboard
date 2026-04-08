@@ -11,8 +11,10 @@ type AuthCtxType = {
 
 const AuthCtx = createContext<AuthCtxType>({ member: null, loading: true, isAdmin: false })
 
+const PUBLIC_PATHS = ['/login', '/pending', '/auth/callback']
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [member, setMember] = useState<TeamMember | null>(null)
+  const [member, setMember]   = useState<TeamMember | null>(null)
   const [loading, setLoading] = useState(true)
   const router   = useRouter()
   const pathname = usePathname()
@@ -20,20 +22,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession()
+
       if (!session) {
-        if (pathname !== '/login') router.replace('/login')
+        if (!PUBLIC_PATHS.includes(pathname)) router.replace('/login')
         setLoading(false)
         return
       }
+
       const m = await getCurrentMember()
-      if (!m && pathname !== '/login') {
+
+      if (!m) {
+        // Signed in with Google but no team_member record yet
+        // (trigger may not have run) — sign out and retry
         await supabase.auth.signOut()
         router.replace('/login')
-      } else {
-        setMember(m)
+        setLoading(false)
+        return
       }
+
+      if (m.status === 'pending') {
+        // Registered but not approved yet
+        if (pathname !== '/pending') router.replace('/pending')
+        setMember(m)
+        setLoading(false)
+        return
+      }
+
+      // Approved — allow access
+      setMember(m)
+      if (PUBLIC_PATHS.includes(pathname)) router.replace('/')
       setLoading(false)
     }
+
     init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -43,19 +63,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (event === 'SIGNED_IN' && session) {
         const m = await getCurrentMember()
         setMember(m)
+        if (m?.status === 'pending') router.replace('/pending')
+        else if (m?.status === 'approved') router.replace('/')
       }
     })
     return () => subscription.unsubscribe()
   }, [pathname, router])
 
-  if (loading && pathname !== '/login') return (
+  if (loading && !PUBLIC_PATHS.includes(pathname)) return (
     <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
       <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
     </div>
   )
 
   return (
-    <AuthCtx.Provider value={{ member, loading, isAdmin: member?.role === 'admin' }}>
+    <AuthCtx.Provider value={{ member, loading, isAdmin: member?.role === 'admin' && member?.status === 'approved' }}>
       {children}
     </AuthCtx.Provider>
   )

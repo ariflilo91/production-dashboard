@@ -10,15 +10,9 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
-    if (!error && data?.user) {
-      const email = data.user.email ?? ''
-      // Block non-Durioo emails
-      if (!email.endsWith('@durioo.com')) {
-        await supabase.auth.signOut()
-        return NextResponse.redirect(`${origin}/login?error=not_durioo`)
-      }
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error) {
+      // AuthProvider will handle routing based on status (pending vs approved)
       return NextResponse.redirect(`${origin}/`)
     }
   }

@@ -30,7 +30,7 @@ export type Holiday = {
 }
 export type TeamMember = {
   id: string; user_id?: string; email: string; display_name?: string
-  role: 'admin'|'member'; avatar_url?: string
+  role: 'admin'|'member'; status: 'pending'|'approved'; avatar_url?: string
   notify_urgent: boolean; notify_weekly: boolean; created_at: string
 }
 export type DepartmentAssignment = {
@@ -42,7 +42,10 @@ export type DepartmentAssignment = {
 export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${window.location.origin}/auth/callback` },
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+      queryParams: { access_type: 'offline', prompt: 'consent' },
+    },
   })
   if (error) throw error
 }

@@ -75,6 +75,11 @@ export default function TeamPage() {
     setMembers(prev => prev.filter(m => m.id !== id))
   }
 
+  async function handleApprove(id: string) {
+    const updated = await updateTeamMember(id, { status: 'approved' })
+    setMembers(prev => prev.map(m => m.id === id ? updated : m))
+  }
+
   async function toggleDeptAssign(memberId: string, deptId: string) {
     const existing = assignments.find(a => a.team_member_id === memberId && a.department_id === deptId)
     if (existing) {
@@ -132,7 +137,14 @@ export default function TeamPage() {
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-sub)', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-sub)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Team members</div>
-              <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{members.length} member{members.length !== 1 ? 's' : ''}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {members.filter(m => (m as any).status === 'pending').length > 0 && (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber-bdr)' }}>
+                    {members.filter(m => (m as any).status === 'pending').length} pending
+                  </span>
+                )}
+                <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{members.length} total</div>
+              </div>
             </div>
             {loading ? (
               <div style={{ padding: 20, color: 'var(--text-dim)', fontSize: 12 }}>Loading...</div>
@@ -157,10 +169,19 @@ export default function TeamPage() {
                         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{m.display_name || '—'}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{m.email}</div>
                       </div>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, background: m.role === 'admin' ? 'var(--blue-bg)' : 'var(--bg-hover)', color: m.role === 'admin' ? 'var(--blue)' : 'var(--text-dim)', border: `1px solid ${m.role === 'admin' ? 'var(--blue-bdr)' : 'var(--border)'}` }}>
-                        {m.role === 'admin' ? 'Admin' : 'Member'}
-                      </span>
+                      {(m as any).status === 'pending' ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber-bdr)' }}>
+                          Pending approval
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 10, background: m.role === 'admin' ? 'var(--blue-bg)' : 'var(--bg-hover)', color: m.role === 'admin' ? 'var(--blue)' : 'var(--text-dim)', border: `1px solid ${m.role === 'admin' ? 'var(--blue-bdr)' : 'var(--border)'}` }}>
+                          {m.role === 'admin' ? 'Admin' : 'Member'}
+                        </span>
+                      )}
                       <div style={{ display: 'flex', gap: 6 }}>
+                        {(m as any).status === 'pending' && (
+                          <button onClick={() => handleApprove(m.id)} style={{ height: 28, padding: '0 10px', borderRadius: 6, border: '1px solid var(--green-bdr)', background: 'var(--green-bg)', color: 'var(--green)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>✓ Approve</button>
+                        )}
                         <button onClick={() => { setEditId(m.id); setEditName(m.display_name || ''); setEditRole(m.role) }} style={{ height: 28, padding: '0 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
                         {m.id !== me?.id && (
                           <button onClick={() => handleDelete(m.id, m.email)} style={{ height: 28, padding: '0 10px', borderRadius: 6, border: '1px solid var(--red-bdr)', background: 'transparent', color: 'var(--red)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
