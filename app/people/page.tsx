@@ -264,9 +264,10 @@ export default function PeoplePage() {
       // Load team members separately so errors don't block projects
       try {
         const mems = await getTeamMembers()
+        console.log('Team members loaded:', mems.length, mems)
         setMembers(mems)
       } catch(e) {
-        console.warn('Could not load team members:', e)
+        console.error('Could not load team members:', e)
       }
       setLoading(false)
     }

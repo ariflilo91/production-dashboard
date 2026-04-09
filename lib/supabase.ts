@@ -180,11 +180,15 @@ export type TeamMember = {
 export async function getTeamMembers(): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from('team_members')
-    .select('*')
+    .select('id, name, role, department, color, created_at, updated_at')
+    .not('name', 'is', null)
+    .not('department', 'is', null)
     .order('name')
-  if (error) throw error
-  // Filter client-side: only show members with a name and department set
-  return (data ?? []).filter(m => m.name && m.department)
+  if (error) {
+    console.error('getTeamMembers error:', error)
+    return []
+  }
+  return (data ?? []) as TeamMember[]
 }
 
 export async function upsertTeamMember(m: Partial<TeamMember>): Promise<TeamMember> {
