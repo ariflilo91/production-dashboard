@@ -20,7 +20,9 @@ export type Task = {
   id: string; project_id: string; episode_id: string; department_id: string
   stage_code: string; status: 'done'|'wip'|'review'|'overdue'|'risk'|'upcoming'
   start_date: string; end_date: string; notes?: string
+  assigned_to?: string | null
   episode?: Episode; department?: Department
+  project?: Project
 }
 export type Holiday = {
   id: string; project_id: string; date: string; name: string; type: 'ph'|'sl'
@@ -80,6 +82,7 @@ export async function upsertTask(task: Partial<Task> & { project_id: string }): 
     department_id: task.department_id, stage_code: task.stage_code,
     status: task.status, start_date: task.start_date, end_date: task.end_date,
     notes: task.notes,
+    assigned_to: (task as any).assigned_to ?? null,
   }
   if (task.id) payload.id = task.id
   const { data, error } = await supabase
@@ -160,4 +163,54 @@ export async function deleteNote(id: string): Promise<void> {
 export async function toggleNotePin(id: string, pinned: boolean): Promise<void> {
   const { error } = await supabase.from('notes').update({ pinned, updated_at: new Date().toISOString() }).eq('id', id)
   if (error) throw error
+}
+
+// ─── Team Members (People) ─────────────────────────────
+
+export type TeamMember = {
+  id: string
+  name: string
+  role: string
+  department: string
+  color: string
+  created_at: string
+  updated_at: string
+}
+
+export async function getTeamMembers(): Promise<TeamMember[]> {
+  const { data, error } = await supabase
+    .from('team_members')
+    .select('*')
+    .order('name')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function upsertTeamMember(m: Partial<TeamMember>): Promise<TeamMember> {
+  const payload: Record<string, unknown> = {
+    name: m.name, role: m.role, department: m.department,
+    color: m.color ?? '#378ADD', updated_at: new Date().toISOString(),
+  }
+  if (m.id) payload.id = m.id
+  const { data, error } = await supabase
+    .from('team_members')
+    .upsert(payload, { onConflict: 'id' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteTeamMember(id: string): Promise<void> {
+  const { error } = await supabase.from('team_members').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function getTasksForMember(memberId: string): Promise<Task[]> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*, episode:episodes(*), department:departments(*), project:projects(*)')
+    .eq('assigned_to', memberId)
+    .order('start_date')
+  if (error) throw error
+  return data ?? []
 }
