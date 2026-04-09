@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import TopNav from '@/components/TopNav'
 import { StatCard, Badge, ProgressBar } from '@/components/UI'
-import { getProjects, getTasks, createProject, Project, Task } from '@/lib/supabase'
+import { getProjects, getTasks, getNotes, createProject, Project, Task, Note } from '@/lib/supabase'
 import { parseDate } from '@/lib/utils'
 
 const COLORS = ['var(--blue-mid)','#1D9E75','#D85A30','#7F77DD','#D4537E','#BA7517']
@@ -257,6 +257,7 @@ export default function MasterDashboard() {
   const [taskCounts, setTaskCounts]         = useState<Record<string, Record<string, number>>>({})
   const [projectTasks, setProjectTasks]     = useState<Record<string, Task[]>>({})
   const [loading, setLoading]               = useState(true)
+  const [notes, setNotes]                   = useState<Note[]>([])
   const [showNewProject, setShowNewProject] = useState(false)
 
   useEffect(() => { load() }, [])
@@ -272,6 +273,8 @@ export default function MasterDashboard() {
       tasks.forEach(t => { c[t.status] = (c[t.status] || 0) + 1 })
       counts[p.id] = c; tByP[p.id] = tasks
     }))
+    const ns = await getNotes()
+    setNotes(ns.slice(0, 5)) // show top 5 on dashboard
     setTaskCounts(counts); setProjectTasks(tByP); setLoading(false)
   }
 
@@ -302,6 +305,43 @@ export default function MasterDashboard() {
           ) : (
             <>
               {/* Stats */}
+              {/* Notes headline strip */}
+              {notes.length > 0 && (
+                <div style={{ marginBottom: 16, background: 'var(--bg-card)', border: '1px solid var(--border-sub)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: '1px solid var(--border-sub)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 13 }}>📝</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Latest notes</span>
+                    </div>
+                    <Link href="/notes" style={{ fontSize: 11, color: 'var(--blue)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
+                  </div>
+                  <div style={{ padding: '4px 0' }}>
+                    {notes.map(note => {
+                      const colorMap: Record<string,string> = { yellow:'#c8b840', green:'#4aaf5a', blue:'#3a88db', pink:'#db3a88', purple:'#8838db', orange:'#db8838', teal:'#38c8db', gray:'#888780' }
+                      const c = colorMap[note.color] ?? colorMap.yellow
+                      return (
+                        <Link key={note.id} href="/notes" style={{ textDecoration: 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border-dim)' }}>
+                            <div style={{ width: 3, height: 32, borderRadius: 2, background: c, flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {note.pinned && <span style={{ fontSize: 10 }}>📌</span>}
+                                {note.title}
+                              </div>
+                              {note.body && <div style={{ fontSize: 11, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{note.body}</div>}
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--text-faint)', flexShrink: 0, textAlign: 'right' }}>
+                              <div style={{ fontWeight: 600 }}>{note.author}</div>
+                              <div>{new Date(note.created_at).toLocaleDateString('en-MY', { day:'numeric', month:'short' })}</div>
+                            </div>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 20 }}>
                 <StatCard label="Total overdue"   value={totalOverdue} sub="across all projects" color={totalOverdue > 0 ? 'red' : 'default'} />
                 <StatCard label="At risk"         value={totalRisk}    sub="need attention"       color={totalRisk > 0 ? 'amber' : 'default'} />

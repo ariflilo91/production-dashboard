@@ -43,6 +43,7 @@ export default function Sidebar({ projects = [], activeProjectId }: SidebarProps
       <div style={{ padding: '10px 8px 0' }}>
         <SectionLabel text="Overview" />
         <NavItem href="/" label="Master dashboard" active={pathname === '/'} />
+        <NavItem href="/notes" label="Notes & memos" active={pathname === '/notes'} />
       </div>
 
       <div style={{ padding: '6px 8px', flex: 1 }}>

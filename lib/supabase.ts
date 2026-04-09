@@ -109,3 +109,55 @@ export async function deleteHoliday(id: string): Promise<void> {
   const { error } = await supabase.from('holidays').delete().eq('id', id)
   if (error) throw error
 }
+
+// ─── Notes ────────────────────────────────────────────
+
+export type Note = {
+  id: string
+  title: string
+  body: string
+  author: string
+  color: string
+  pinned: boolean
+  created_at: string
+  updated_at: string
+}
+
+export async function getNotes(): Promise<Note[]> {
+  const { data, error } = await supabase
+    .from('notes')
+    .select('*')
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function upsertNote(note: Partial<Note>): Promise<Note> {
+  const payload: Record<string, unknown> = {
+    title:   note.title,
+    body:    note.body ?? '',
+    author:  note.author ?? 'Anonymous',
+    color:   note.color ?? 'yellow',
+    pinned:  note.pinned ?? false,
+    updated_at: new Date().toISOString(),
+  }
+  if (note.id) payload.id = note.id
+  const { data, error } = await supabase
+    .from('notes')
+    .upsert(payload, { onConflict: 'id' })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteNote(id: string): Promise<void> {
+  const { error } = await supabase.from('notes').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function toggleNotePin(id: string, pinned: boolean): Promise<void> {
+  const { error } = await supabase.from('notes').update({ pinned, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
