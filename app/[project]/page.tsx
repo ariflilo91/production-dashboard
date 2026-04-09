@@ -320,13 +320,20 @@ export default function ProjectPage({ params }: { params: { project: string } })
   useEffect(() => {
     async function load() {
       const { data: proj } = await supabase.from('projects').select('*').eq('id', projectId).single()
-      const [projs, eps, depts, tks, hols, mems] = await Promise.all([
+      const [projs, eps, depts, tks, hols] = await Promise.all([
         getProjects(), getEpisodes(projectId), getDepartments(projectId),
-        getTasks(projectId), getHolidays(projectId), getTeamMembers(),
+        getTasks(projectId), getHolidays(projectId),
       ])
       setProject(proj); setAllProjects(projs); setEpisodes(eps)
       setDepartments(depts); setTasks(tks); setHolidays(hols)
-      setTeamMembers(mems); setLoading(false)
+      // Load team members separately so a failure doesn't block the page
+      try {
+        const mems = await getTeamMembers()
+        setTeamMembers(mems)
+      } catch (e) {
+        console.warn('Could not load team members:', e)
+      }
+      setLoading(false)
     }
     load()
   }, [projectId])

@@ -273,8 +273,10 @@ export default function MasterDashboard() {
       tasks.forEach(t => { c[t.status] = (c[t.status] || 0) + 1 })
       counts[p.id] = c; tByP[p.id] = tasks
     }))
-    const ns = await getNotes()
-    setNotes(ns.slice(0, 5)) // show top 5 on dashboard
+    try {
+      const ns = await getNotes()
+      setNotes(ns.slice(0, 5))
+    } catch(e) { console.warn('Notes load failed:', e) }
     setTaskCounts(counts); setProjectTasks(tByP); setLoading(false)
   }
 
