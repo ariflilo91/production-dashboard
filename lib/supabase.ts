@@ -181,6 +181,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from('team_members')
     .select('*')
+    .not('department', 'is', null)  // only real team members, not auth accounts
     .order('name')
   if (error) throw error
   return data ?? []
