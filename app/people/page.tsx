@@ -257,9 +257,20 @@ export default function PeoplePage() {
   const [showAdd, setShowAdd]       = useState(false)
 
   useEffect(() => {
-    Promise.all([getProjects(), getTeamMembers()]).then(([projs, mems]) => {
-      setProjects(projs); setMembers(mems); setLoading(false)
-    })
+    async function load() {
+      // Load projects first — always needed for sidebar
+      const projs = await getProjects()
+      setProjects(projs)
+      // Load team members separately so errors don't block projects
+      try {
+        const mems = await getTeamMembers()
+        setMembers(mems)
+      } catch(e) {
+        console.warn('Could not load team members:', e)
+      }
+      setLoading(false)
+    }
+    load()
   }, [])
 
   async function handleSaveMember(m: Partial<TeamMember>) {

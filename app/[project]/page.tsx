@@ -204,7 +204,7 @@ function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete
   const [status, setStatus]   = useState<Task['status']>(task?.status || 'upcoming')
   const [startDate, setStart] = useState(task?.start_date || '')
   const [endDate, setEnd]     = useState(task?.end_date || '')
-  const [assignedTo, setAssignedTo] = useState<string>((task as any)?.assigned_to ?? '')
+  const [assignedTo, setAssignedTo] = useState<string>(task?.assigned_to ?? '')
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
 
@@ -218,7 +218,7 @@ function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete
     if (endDate < startDate) { setError('End date must be after start date.'); return }
     setSaving(true); setError('')
     try {
-      await onSave({ id: task?.id, department_id: deptId, episode_id: epId, stage_code: stage, status, start_date: startDate, end_date: endDate, assigned_to: assignedTo || null } as any)
+      await onSave({ id: task?.id, department_id: deptId, episode_id: epId, stage_code: stage, status, start_date: startDate, end_date: endDate, assigned_to: assignedTo || null })
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to save.'); setSaving(false) }
   }
 
@@ -257,6 +257,14 @@ function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete
         <label style={lbl}>Status</label>
         <select value={status} onChange={e => setStatus(e.target.value as Task['status'])} style={{ ...modalInp, marginBottom: 12 }}>
           {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+
+        <label style={lbl}>Assign to</label>
+        <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} style={{ ...modalInp, marginBottom: 12 }}>
+          <option value="">— Unassigned —</option>
+          {teamMembers.map(m => (
+            <option key={m.id} value={m.id}>{m.name} · {m.role}</option>
+          ))}
         </select>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
@@ -708,6 +716,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
             ['Status', STATUS_LABELS[tooltip.task.status]],
             ['Start', formatDate(parseDate(tooltip.task.start_date))],
             ['End', formatDate(parseDate(tooltip.task.end_date))],
+            ...(tooltip.task.assigned_to ? [['Assigned to', teamMembers.find(m=>m.id===tooltip.task.assigned_to)?.name ?? '—']] : []),
           ].map(([l, v]) => (
             <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
               <span style={{ color: 'var(--text-dim)' }}>{l}</span>
