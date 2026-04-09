@@ -181,10 +181,10 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from('team_members')
     .select('*')
-    .not('department', 'is', null)  // only real team members, not auth accounts
     .order('name')
   if (error) throw error
-  return data ?? []
+  // Filter client-side: only show members with a name and department set
+  return (data ?? []).filter(m => m.name && m.department)
 }
 
 export async function upsertTeamMember(m: Partial<TeamMember>): Promise<TeamMember> {
