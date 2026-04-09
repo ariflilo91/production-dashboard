@@ -28,7 +28,7 @@ const BAR: Record<string, React.CSSProperties> = {
   review:   { background: '#1e1408', color: 'var(--amber)', border: '1px solid #3a2808' },
   overdue:  { background: '#1e0808', color: 'var(--red)', border: '1px solid #3a1010' },
   risk:     { background: '#1e1408', color: 'var(--amber)', border: '1.5px solid #F09595' },
-  upcoming: { background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid #2a2a52' },
+  upcoming: { background: 'var(--bar-upcoming-bg)', color: 'var(--bar-upcoming-color)', border: '1px solid var(--bar-upcoming-bdr)' },
 }
 
 const inp: React.CSSProperties = {

@@ -51,6 +51,9 @@
   --bar-overdue-bg:#1e0808;
   --bar-overdue-color:#F09595;
   --bar-overdue-bdr:#3a1010;
+  --bar-upcoming-bg:   #1a1a18;
+  --bar-upcoming-color:#666662;
+  --bar-upcoming-bdr:  #2a2a27;
 }
 
 /* ─── Light mode ─── */
@@ -103,6 +106,9 @@
   --bar-overdue-bg:#fde8e8;
   --bar-overdue-color:#c02020;
   --bar-overdue-bdr:#f0b0b0;
+  --bar-upcoming-bg:   #ececea;
+  --bar-upcoming-color:#888880;
+  --bar-upcoming-bdr:  #d0cec8;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

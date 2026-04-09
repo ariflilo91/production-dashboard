@@ -20,7 +20,7 @@ const BAR: Record<string, React.CSSProperties> = {
   review:   { background:'var(--bar-review-bg)',  color:'var(--bar-review-color)',  border:'1px solid var(--bar-review-bdr)'  },
   overdue:  { background:'var(--bar-overdue-bg)', color:'var(--bar-overdue-color)', border:'1px solid var(--bar-overdue-bdr)' },
   risk:     { background:'var(--bar-review-bg)',  color:'var(--bar-review-color)',  border:'1.5px solid var(--bar-overdue-bdr)'},
-  upcoming: { background:'var(--bg-hover)',        color:'var(--text-faint)',        border:'1px solid var(--border)'          },
+  upcoming: { background:'var(--bar-upcoming-bg)', color:'var(--bar-upcoming-color)', border:'1px solid var(--bar-upcoming-bdr)' },
 }
 const MEMBER_COLORS = ['#378ADD','#1D9E75','#D85A30','#7F77DD','#D4537E','#BA7517','#F09595','#FBCA75','#97C459','#85B7EB']
 
@@ -160,7 +160,7 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
               <table style={{ borderCollapse:'collapse', fontSize:11, minWidth:'100%' }}>
                 <thead>
                   <tr>
-                    <th style={{ position:'sticky', left:0, zIndex:8, background:'var(--bg-surface)', minWidth:200, maxWidth:200, padding:'7px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.06em', borderRight:'1px solid var(--border-sub)', borderBottom:'1px solid var(--border-sub)' }} rowSpan={2}>
+                    <th style={{ position:'sticky', left:0, zIndex:8, background:'var(--bg-surface)', minWidth:200, maxWidth:200, padding:'7px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.06em', borderRight:'2px solid var(--border-sub)', borderBottom:'1px solid var(--border-sub)', boxShadow:'2px 0 4px rgba(0,0,0,0.15)' }} rowSpan={2}>
                       Task
                     </th>
                     {months.map((m,i) => (
@@ -186,7 +186,7 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
                     return [
                       // Project group header
                       <tr key={`proj-${pid}`}>
-                        <td colSpan={total+1} style={{ padding:'5px 12px', background:'var(--gantt-group-bg)', fontSize:9, fontWeight:700, color:'var(--text-faint)', textTransform:'uppercase', letterSpacing:'.09em', borderBottom:'1px solid var(--border-dim)', position:'sticky', left:0, zIndex:2 }}>
+                        <td colSpan={total+1} style={{ padding:'5px 12px', background:'var(--gantt-group-bg)', fontSize:9, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.09em', borderBottom:'1px solid var(--border-sub)', position:'sticky', left:0, zIndex:2 }}>
                           <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
                             {proj && <span style={{ width:8, height:8, borderRadius:'50%', background:proj.color, display:'inline-block' }} />}
                             {proj?.name ?? 'Unknown project'}
@@ -202,7 +202,7 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
 
                         return (
                           <tr key={task.id} style={{ borderBottom:'1px solid var(--border-dim)' }}>
-                            <td style={{ position:'sticky', left:0, zIndex:2, background:'var(--bg-surface)', padding:'0 12px', minWidth:200, maxWidth:200, height:36, verticalAlign:'middle', borderRight:'1px solid var(--border-sub)' }}>
+                            <td style={{ position:'sticky', left:0, zIndex:3, background:'var(--bg-card)', padding:'0 12px', minWidth:200, maxWidth:200, height:36, verticalAlign:'middle', borderRight:'2px solid var(--border-sub)', boxShadow:'2px 0 4px rgba(0,0,0,0.15)' }}>
                               <div style={{ fontSize:11, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                                 {task.department?.full_name}
                               </div>
