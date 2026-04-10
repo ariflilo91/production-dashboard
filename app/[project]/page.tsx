@@ -10,7 +10,7 @@ import {
   Project, Episode, Department, Task, Holiday, TeamMember,
 } from '@/lib/supabase'
 import {
-  buildDays, dayDiff, addDays, parseDate, formatDate, formatDateInput,
+  buildDays, buildWeekHeaders, buildMonthHeaders, dayDiff, addDays, parseDate, formatDate, formatDateInput,
   isOffDay, getStageFull, DEPT_STAGES, STATUS_LABELS,
 } from '@/lib/utils'
 
