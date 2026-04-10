@@ -378,7 +378,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const wp = tasks.filter(t => t.status === 'wip' || t.status === 'review').length
   const dn = tasks.filter(t => t.status === 'done').length
 
-  const months = buildMonthHeaders(days)
+  const months = buildMonthHeaders(days))
 
   async function saveTask(data: Partial<Task>) {
     const saved = await upsertTask({ ...data, project_id: projectId } as Task & { project_id: string })
@@ -567,7 +567,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
 
                     return [
                       <tr key={grp.label}>
-                        <td colSpan={total + 1} style={{ padding: '5px 10px', background: 'var(--bg-base)', fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.09em', borderBottom: '1px solid #141412', position: 'sticky', left: 0, zIndex: 2 }}>
+                        <td colSpan={total} style={{ padding: '5px 10px', background: 'var(--bg-base)', fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.09em', borderBottom: '1px solid #141412', position: 'sticky', left: 0, zIndex: 2 }}>
                           {grp.label}
                         </td>
                       </tr>,
@@ -640,8 +640,8 @@ export default function ProjectPage({ params }: { params: { project: string } })
                                 for (const ep of laneEps) {
                                   const tsk = deptTasks.find(t => t.episode_id === ep.id)
                                   if (!tsk) continue
-                                  const s = Math.max(0, dayDiff(viewStart, parseDate(tsk.start_date)))
-                                  const e = Math.min(total - 1, dayDiff(viewStart, parseDate(tsk.end_date)))
+                                  const s = Math.max(0, workDayIndex(days, parseDate(tsk.start_date)))
+                                  const e = Math.min(total - 1, workDayIndex(days, parseDate(tsk.end_date)))
                                   if (i === s) {
                                     const span = Math.max(1, e - s + 1)
                                     const barStyle = BAR[tsk.status]
