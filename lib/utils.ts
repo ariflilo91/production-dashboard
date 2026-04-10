@@ -123,22 +123,21 @@ export function buildWeekHeaders(days: Date[]): { label: string; count: number; 
   const groups: { label: string; count: number; key: string }[] = []
 
   days.forEach(day => {
-    // 1. Find the Monday of this week
+    // 1. Get the Monday for THIS specific day
     const dow = day.getDay()
     const monday = new Date(day)
-    // If it's Sunday (0), go back 6 days. Otherwise, go back to day 1 (Mon)
     monday.setDate(day.getDate() - (dow === 0 ? 6 : dow - 1))
     monday.setHours(0, 0, 0, 0)
 
     const key = formatDateInput(monday)
     
-    // 2. Calculate Week Number of the Month correctly
-    // We look at the Monday to decide which "W" label to show
+    // 2. Calculate W label based on that Monday
     const firstDayOfMonth = new Date(monday.getFullYear(), monday.getMonth(), 1)
     const weekNum = Math.ceil((monday.getDate() + firstDayOfMonth.getDay() - 1) / 7)
     const label = `W${weekNum}`
 
-    if (!groups.length || groups[groups.length - 1].key !== key) {
+    // 3. Logic Change: If the key changes, OR it's the first day, start a new group
+    if (groups.length === 0 || groups[groups.length - 1].key !== key) {
       groups.push({ label, count: 1, key })
     } else {
       groups[groups.length - 1].count++
