@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import TopNav from '@/components/TopNav'
-import { getProjects, getNotes, upsertNote, deleteNote, toggleNotePin, Note, Project } from '@/lib/supabase'
+import { getProjects, getNotes, upsertNote, deleteNote, toggleNotePin, getTeamMembers, Note, Project, TeamMember } from '@/lib/supabase'
 
 // ─── Color palette ───────────────────────────────────
 const NOTE_COLORS: { id: string; label: string; bg: string; border: string; text: string; header: string }[] = [
@@ -85,8 +85,11 @@ function NoteCard({ note, theme, onEdit, onDelete, onTogglePin, onClick }: {
 
         {/* Body preview */}
         {note.body && (
-          <div style={{ fontSize: 12, color: col.text, lineHeight: 1.6, marginBottom: 10, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {note.body}
+          <div style={{ fontSize: 12, color: col.text, lineHeight: 1.6, marginBottom: 10, maxHeight: 80, overflow: 'hidden', position: 'relative' }}>
+            {note.body.split('\n').map((line, i) => (
+              <span key={i}>{line}{i < note.body!.split('\n').length - 1 && <br />}</span>
+            ))}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 24, background: `linear-gradient(transparent, ${col.bg})` }} />
           </div>
         )}
 
@@ -124,8 +127,9 @@ function NoteCard({ note, theme, onEdit, onDelete, onTogglePin, onClick }: {
 }
 
 // ─── Note Modal (view + edit) ────────────────────────
-function NoteModal({ note, theme, onSave, onClose }: {
+function NoteModal({ note, theme, teamMembers, onSave, onClose }: {
   note: Partial<Note> | null; theme: 'dark' | 'light'
+  teamMembers: TeamMember[]
   onSave: (n: Partial<Note>) => Promise<void>; onClose: () => void
 }) {
   const isNew = !note?.id
@@ -136,6 +140,40 @@ function NoteModal({ note, theme, onSave, onClose }: {
   const [pinned, setPinned] = useState(note?.pinned ?? false)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(isNew)
+  const [mentionQ, setMentionQ]   = useState('')
+  const [showMention, setShowMention] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  function handleBodyChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setBody(val)
+    // Check for @ trigger
+    const pos = e.target.selectionStart
+    const before = val.slice(0, pos)
+    const match = before.match(/@(\w*)$/)
+    if (match) {
+      setMentionQ(match[1].toLowerCase())
+      setShowMention(true)
+    } else {
+      setShowMention(false)
+    }
+  }
+
+  function insertMention(name: string) {
+    if (!textareaRef.current) return
+    const pos = textareaRef.current.selectionStart
+    const before = body.slice(0, pos)
+    const after = body.slice(pos)
+    const atIdx = before.lastIndexOf('@')
+    const newBody = before.slice(0, atIdx) + '@' + name + ' ' + after
+    setBody(newBody)
+    setShowMention(false)
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }
+
+  const mentionMatches = teamMembers.filter(m =>
+    m.name.toLowerCase().includes(mentionQ)
+  ).slice(0, 6)
   const col = getColor(color, theme)
 
   async function save() {
@@ -167,11 +205,29 @@ function NoteModal({ note, theme, onSave, onClose }: {
               />
 
               {/* Body */}
-              <textarea
-                value={body} onChange={e => setBody(e.target.value)}
-                placeholder="Write your note here..." rows={8}
-                style={{ ...inp, lineHeight: 1.7 }}
-              />
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  ref={textareaRef}
+                  value={body} onChange={handleBodyChange}
+                  placeholder={'Write your note here...\n\nTip: type @name to mention a team member'}
+                  rows={8}
+                  style={{ ...inp, lineHeight: 1.7 }}
+                />
+                {showMention && mentionMatches.length > 0 && (
+                  <div style={{ position: 'absolute', left: 0, bottom: '100%', marginBottom: 4, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, zIndex: 100, minWidth: 180, boxShadow: '0 4px 16px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+                    {mentionMatches.map(m => (
+                      <button key={m.id} onMouseDown={e => { e.preventDefault(); insertMention(m.name) }}
+                        style={{ width: '100%', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: m.color + '33', border: `1.5px solid ${m.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: m.color, flexShrink: 0 }}>
+                          {m.name[0]}
+                        </span>
+                        <span>{m.name}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-faint)', marginLeft: 'auto' }}>{m.role}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Author */}
               <input
@@ -249,6 +305,7 @@ export default function NotesPage() {
   const [projects, setProjects]   = useState<Project[]>([])
   const [notes, setNotes]         = useState<Note[]>([])
   const [loading, setLoading]     = useState(true)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [modal, setModal]         = useState<Partial<Note> | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [search, setSearch]       = useState('')
@@ -270,7 +327,9 @@ export default function NotesPage() {
   useEffect(() => {
     async function load() {
       const [projs, ns] = await Promise.all([getProjects(), getNotes()])
-      setProjects(projs); setNotes(ns); setLoading(false)
+      setProjects(projs); setNotes(ns)
+      try { const mems = await getTeamMembers(); setTeamMembers(mems) } catch(e) {}
+      setLoading(false)
     }
     load()
   }, [])
@@ -412,6 +471,7 @@ export default function NotesPage() {
         <NoteModal
           note={modal}
           theme={theme}
+          teamMembers={teamMembers}
           onSave={handleSave}
           onClose={() => { setShowModal(false); setModal(null) }}
         />

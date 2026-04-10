@@ -35,10 +35,39 @@ export function getStageFull(deptName: string, code: string): string {
   return STAGE_FULL[deptName]?.[code] ?? code
 }
 
+export function isWeekend(date: Date): boolean {
+  const dow = date.getDay()
+  return dow === 0 || dow === 6
+}
+
 export function addDays(date: Date, n: number): Date {
   const d = new Date(date)
   d.setDate(d.getDate() + n)
   return d
+}
+
+// Add working days only (skip weekends)
+export function addWorkDays(date: Date, n: number): Date {
+  let d = new Date(date)
+  let added = 0
+  while (added < n) {
+    d = addDays(d, 1)
+    if (!isWeekend(d)) added++
+  }
+  return d
+}
+
+// Count working days between two dates (excluding weekends)
+export function workDayDiff(a: Date, b: Date): number {
+  if (a > b) return -workDayDiff(b, a)
+  let count = 0
+  let cur = new Date(a)
+  cur.setDate(cur.getDate() + 1)
+  while (cur <= b) {
+    if (!isWeekend(cur)) count++
+    cur = addDays(cur, 1)
+  }
+  return count
 }
 
 export function dayDiff(a: Date, b: Date): number {
@@ -80,9 +109,50 @@ export function workdaysRemaining(endDate: Date, today: Date, holidays: Holiday[
   return { val: count, late: false }
 }
 
+// Build days array EXCLUDING weekends
 export function buildDays(start: Date, end: Date): Date[] {
   const days: Date[] = []
-  const n = dayDiff(start, end) + 1
-  for (let i = 0; i < n; i++) days.push(addDays(start, i))
+  let cur = new Date(start)
+  while (cur <= end) {
+    if (!isWeekend(cur)) days.push(new Date(cur))
+    cur = addDays(cur, 1)
+  }
   return days
+}
+
+// Get week-of-month label (W1..W5) for a date
+export function weekOfMonth(date: Date): string {
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
+  // Find the first Monday of the month (or use day 1 if it's Mon)
+  const weekNum = Math.ceil(date.getDate() / 7)
+  return `W${weekNum}`
+}
+
+// Build week header groups for gantt — grouped by month+week
+export function buildWeekHeaders(days: Date[]): { label: string; count: number }[] {
+  const groups: { label: string; count: number }[] = []
+  days.forEach(day => {
+    const lbl = weekOfMonth(day)
+    const monthKey = `${day.getFullYear()}-${day.getMonth()}-${lbl}`
+    if (!groups.length || groups[groups.length - 1].key !== monthKey) {
+      groups.push({ label: lbl, count: 1, key: monthKey } as any)
+    } else {
+      groups[groups.length - 1].count++
+    }
+  })
+  return groups
+}
+
+// Build month header groups for gantt
+export function buildMonthHeaders(days: Date[]): { label: string; count: number }[] {
+  const groups: { label: string; count: number }[] = []
+  days.forEach(day => {
+    const lbl = day.toLocaleString('en', { month: 'short', year: 'numeric' })
+    if (!groups.length || groups[groups.length - 1].label !== lbl) {
+      groups.push({ label: lbl, count: 1 })
+    } else {
+      groups[groups.length - 1].count++
+    }
+  })
+  return groups
 }

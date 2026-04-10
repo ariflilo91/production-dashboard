@@ -307,34 +307,49 @@ export default function MasterDashboard() {
           ) : (
             <>
               {/* Stats */}
-              {/* Notes headline strip */}
-              {notes.length > 0 && (
+                            {notes.length > 0 && (
                 <div style={{ marginBottom: 16, background: 'var(--bg-card)', border: '1px solid var(--border-sub)', borderRadius: 10, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: '1px solid var(--border-sub)' }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid var(--border-sub)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13 }}>📝</span>
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Latest notes</span>
+                      <span style={{ fontSize: 10, color: 'var(--text-faint)', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 10, padding: '1px 7px' }}>{notes.length}</span>
                     </div>
                     <Link href="/notes" style={{ fontSize: 11, color: 'var(--blue)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
                   </div>
-                  <div style={{ padding: '4px 0' }}>
+                  {/* Cards grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12, padding: 12 }}>
                     {notes.map(note => {
-                      const colorMap: Record<string,string> = { yellow:'#c8b840', green:'#4aaf5a', blue:'#3a88db', pink:'#db3a88', purple:'#8838db', orange:'#db8838', teal:'#38c8db', gray:'#888780' }
+                      const colorMap: Record<string,{bg:string,bdr:string,text:string,head:string}> = {
+                        yellow: {bg:'#2a2200',bdr:'#5a4800',text:'#e8d87a',head:'#c8b840'},
+                        green:  {bg:'#0a2010',bdr:'#184828',text:'#7acf8a',head:'#4aaf5a'},
+                        blue:   {bg:'#0a1828',bdr:'#1a3860',text:'#7ab8eb',head:'#3a88db'},
+                        pink:   {bg:'#280a18',bdr:'#581838',text:'#eb7ab8',head:'#db3a88'},
+                        purple: {bg:'#180a28',bdr:'#381858',text:'#b87aeb',head:'#8838db'},
+                        orange: {bg:'#281400',bdr:'#583000',text:'#ebb87a',head:'#db8838'},
+                        teal:   {bg:'#0a2228',bdr:'#185058',text:'#7ae8eb',head:'#38c8db'},
+                        gray:   {bg:'#1a1a18',bdr:'#2a2a27',text:'#a8a6a0',head:'#888780'},
+                      }
                       const c = colorMap[note.color] ?? colorMap.yellow
                       return (
                         <Link key={note.id} href="/notes" style={{ textDecoration: 'none' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border-dim)' }}>
-                            <div style={{ width: 3, height: 32, borderRadius: 2, background: c, flexShrink: 0 }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                {note.pinned && <span style={{ fontSize: 10 }}>📌</span>}
-                                {note.title}
-                              </div>
-                              {note.body && <div style={{ fontSize: 11, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{note.body}</div>}
+                          <div style={{ background: c.bg, border: `1px solid ${c.bdr}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', transition: 'opacity 0.15s' }}>
+                            <div style={{ height: 3, background: c.head, borderRadius: '10px 10px 0 0', margin: '-10px -12px 10px', borderBottom: `1px solid ${c.bdr}` }} />
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5 }}>
+                              {note.pinned && <span style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }}>📌</span>}
+                              <div style={{ fontSize: 12, fontWeight: 700, color: c.head, lineHeight: 1.3 }}>{note.title}</div>
                             </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-faint)', flexShrink: 0, textAlign: 'right' }}>
-                              <div style={{ fontWeight: 600 }}>{note.author}</div>
-                              <div>{new Date(note.created_at).toLocaleDateString('en-MY', { day:'numeric', month:'short' })}</div>
+                            {note.body && (
+                              <div style={{ fontSize: 11, color: c.text, lineHeight: 1.5, marginBottom: 8, maxHeight: 44, overflow: 'hidden' }}>
+                                {note.body.split('\n').slice(0, 3).map((line, i) => (
+                                  <span key={i}>{line}{i < 2 && <br />}</span>
+                                ))}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: `1px solid ${c.bdr}` }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, color: c.head }}>{note.author}</span>
+                              <span style={{ fontSize: 9, color: c.text, opacity: 0.7 }}>{new Date(note.created_at).toLocaleDateString('en-MY', { day:'numeric', month:'short' })}</span>
                             </div>
                           </div>
                         </Link>
