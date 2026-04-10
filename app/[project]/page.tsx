@@ -364,7 +364,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
 
   const days    = buildDays(viewStart, viewEnd)
   const total   = days.length
-  const todayI  = dayDiff(viewStart, today)
+  const todayI  = workDayIndex(days, today)
   const sidebarProjects = allProjects.map(p => ({ id: p.id, name: p.name, color: p.color }))
 
   const filteredTasks = tasks.filter(t => {
@@ -498,7 +498,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
               <table style={{ borderCollapse: 'collapse', fontSize: 11, minWidth: '100%' }}>
                 <thead>
                   <tr>
-                    <th rowSpan={2} style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '1px solid #222220', borderBottom: '1px solid #222220' }}>
+                    <th rowSpan={3} style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '1px solid #222220', borderBottom: '1px solid #222220' }}>
                       Department
                     </th>
                     {months.map((m, i) => (
