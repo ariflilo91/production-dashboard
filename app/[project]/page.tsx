@@ -10,7 +10,7 @@ import {
   Project, Episode, Department, Task, Holiday, TeamMember,
 } from '@/lib/supabase'
 import {
-  buildDays, buildWeekHeaders, buildMonthHeaders, workDayIndex, dayDiff, // Added dayDiff
+  buildDays, buildWeekHeaders, buildMonthHeaders, workDayIndex, dayDiff,
   addDays, parseDate, formatDate, formatDateInput,
   isOffDay, getStageFull, DEPT_STAGES, STATUS_LABELS,
 } from '@/lib/utils'
@@ -359,6 +359,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
 
   const days    = buildDays(viewStart, viewEnd)
   const total   = days.length
+  // Correctly aligned today line
   const todayI  = workDayIndex(days, today)
   const sidebarProjects = allProjects.map(p => ({ id: p.id, name: p.name, color: p.color }))
 
@@ -565,7 +566,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                         if (lanes.length === 0) {
                           return (
                             <tr key={dept.id} style={{ borderBottom: '1px solid #141412' }}>
-                              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '0 10px', minWidth: 150, maxWidth: 150, height: 36, verticalAlign: 'middle', borderRight: '1px solid #222220' }}>
+                              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '12px 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'top', borderRight: '1px solid #222220' }}>
                                 <div style={{ fontSize: 11, fontWeight: 400, color: '#555552', fontStyle: 'italic', lineHeight: 1.3 }}>
                                   {dept.full_name}
                                   <span style={{ fontSize: 9, color: '#3a3a37', display: 'block', marginTop: 1 }}>no data</span>
@@ -597,7 +598,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                         return lanes.map((laneEps, laneIdx) => (
                           <tr key={`${dept.id}-lane-${laneIdx}`} style={{ borderBottom: '1px solid #141412' }}>
                             {laneIdx === 0 && (
-                              <td rowSpan={lanes.length} style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '0 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'middle', borderRight: '1px solid #222220' }}>
+                              <td rowSpan={lanes.length} style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '12px 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'top', borderRight: '1px solid #222220' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', lineHeight: 1.3 }}>
                                   {dept.full_name}
                                 </div>
@@ -619,8 +620,9 @@ export default function ProjectPage({ params }: { params: { project: string } })
                                 for (const ep of laneEps) {
                                   const tsk = deptTasks.find(t => t.episode_id === ep.id)
                                   if (!tsk) continue
-                                  const s = Math.max(0, dayDiff(viewStart, parseDate(tsk.start_date)))
-                                  const e = Math.min(total - 1, dayDiff(viewStart, parseDate(tsk.end_date)))
+                                  // Sync task positioning with the working day grid
+                                  const s = workDayIndex(days, parseDate(tsk.start_date))
+                                  const e = workDayIndex(days, parseDate(tsk.end_date))
                                   if (i === s) {
                                     const span = Math.max(1, e - s + 1)
                                     const barStyle = BAR[tsk.status]
