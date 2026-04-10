@@ -101,7 +101,7 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
     getTasksForMember(member.id).then(t => { setTasks(t); setLoading(false) })
   }, [member.id])
 
-  const months = buildMonthHeaders(days))
+  const months = buildMonthHeaders(days)
 
   const ov = tasks.filter(t=>t.status==='overdue').length
   const rk = tasks.filter(t=>t.status==='risk').length
