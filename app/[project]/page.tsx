@@ -10,7 +10,7 @@ import {
   Project, Episode, Department, Task, Holiday, TeamMember,
 } from '@/lib/supabase'
 import {
-  buildDays, buildWeekHeaders, buildMonthHeaders, workDayIndex, dayDiff,
+  buildDays, buildMonthHeaders, workDayIndex,
   addDays, parseDate, formatDate, formatDateInput,
   isOffDay, getStageFull, DEPT_STAGES, STATUS_LABELS,
 } from '@/lib/utils'
@@ -49,6 +49,7 @@ const lbl: React.CSSProperties = {
   fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em',
 }
 
+// Fix 5: compute default "from" = 4 weeks before today
 function defaultViewStart(): Date {
   const d = new Date()
   d.setDate(d.getDate() - 28)
@@ -266,13 +267,16 @@ function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           <div>
             <label style={lbl}>Start date</label>
+            {/* Fix 2: end date min is locked to start date */}
             <input type="date" value={startDate} onChange={e => {
               setStart(e.target.value)
+              // if end is before new start, clear it
               if (endDate && e.target.value > endDate) setEnd('')
             }} style={modalInp} />
           </div>
           <div>
             <label style={lbl}>End date</label>
+            {/* Fix 2: min attribute ensures end >= start */}
             <input type="date" value={endDate} min={startDate || undefined} onChange={e => setEnd(e.target.value)} style={modalInp} />
           </div>
         </div>
@@ -303,10 +307,12 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const [tasks, setTasks]               = useState<Task[]>([])
   const [holidays, setHolidays]         = useState<Holiday[]>([])
   const [loading, setLoading]           = useState(true)
+  // Fix 5: dynamic default — 4 weeks back to 1 year forward
   const [viewStart, setViewStart]       = useState(defaultViewStart)
   const [viewEnd, setViewEnd]           = useState(defaultViewEnd)
   const [filterDept, setFilterDept]     = useState('')
   const [filterEp, setFilterEp]         = useState('')
+  // Fix 1: which column index is hovered (for holiday tooltip)
   const [hoveredCol, setHoveredCol]     = useState<number | null>(null)
   const [tooltip, setTooltip]           = useState<{ x: number; y: number; task: Task; dept: Department } | null>(null)
   const [modal, setModal]               = useState<{ type: 'edit' | 'add'; task?: Task; deptId?: string } | null>(null)
@@ -341,8 +347,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
       setTasks(prev => prev.map(t => {
         if (t.id !== id) return t
         const clone = { ...t }
-        if (side === 'r') { const nd = addDays(origEnd, cols); clone.end_date = formatDateInput(nd < origStart ? origStart : nd) }
-        else if (side === 'move') { const dur = dayDiff(origStart, origEnd); const ns = addDays(origStart, cols); const ne = addDays(ns, dur); clone.start_date = formatDateInput(ns); clone.end_date = formatDateInput(ne) }
+        if (side === 'r') { const nd = addDays(origEnd, cols); clone.end_date = formatDateInput(nd < origStart ? origStart : nd) } else if (side === 'move') { const dur = dayDiff(origStart, origEnd); const ns = addDays(origStart, cols); const ne = addDays(ns, dur); clone.start_date = formatDateInput(ns); clone.end_date = formatDateInput(ne) }
         else { const nd = addDays(origStart, cols); clone.start_date = formatDateInput(nd > origEnd ? origEnd : nd) }
         return clone
       }))
@@ -359,8 +364,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
 
   const days    = buildDays(viewStart, viewEnd)
   const total   = days.length
-  // Correctly aligned today line
-  const todayI  = workDayIndex(days, today)
+  const todayI  = dayDiff(viewStart, today)
   const sidebarProjects = allProjects.map(p => ({ id: p.id, name: p.name, color: p.color }))
 
   const filteredTasks = tasks.filter(t => {
@@ -374,8 +378,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const wp = tasks.filter(t => t.status === 'wip' || t.status === 'review').length
   const dn = tasks.filter(t => t.status === 'done').length
 
-  const months = buildMonthHeaders(days)
-  const weeks  = buildWeekHeaders(days)
+  const months = buildMonthHeaders(days))
 
   async function saveTask(data: Partial<Task>) {
     const saved = await upsertTask({ ...data, project_id: projectId } as Task & { project_id: string })
@@ -395,18 +398,25 @@ export default function ProjectPage({ params }: { params: { project: string } })
 
   function getDeptByName(name: string) { return departments.find(d => d.name === name) }
 
+  // Fix 4: compute non-overlapping rows per department
+  // For each dept, pack episodes into lanes (rows) so overlapping bars go on separate rows
+  // but non-overlapping bars share a single row
   function computeLanes(deptId: string): Episode[][] {
     const deptTasks = filteredTasks.filter(t => t.department_id === deptId)
     const lanes: Episode[][] = []
-    const epList = filterEp ? episodes.filter(e => e.id === filterEp) : episodes
+
+    const epList = filterEp
+      ? episodes.filter(e => e.id === filterEp)
+      : episodes
 
     for (const ep of epList) {
       const tsk = deptTasks.find(t => t.episode_id === ep.id)
-      if (!tsk) continue
+      if (!tsk) continue // skip episodes with no task in this dept
 
       const tStart = workDayIndex(days, parseDate(tsk.start_date))
       const tEnd   = workDayIndex(days, parseDate(tsk.end_date))
 
+      // find first lane where this task doesn't overlap
       let placed = false
       for (const lane of lanes) {
         const overlaps = lane.some(laneEp => {
@@ -441,6 +451,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
         />
 
         <div style={{ padding: '14px 20px', overflowY: 'auto', flex: 1 }}>
+          {/* Filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             <select value={filterDept} onChange={e => setFilterDept(e.target.value)} style={inp}>
               <option value="">All departments</option>
@@ -457,6 +468,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
             <input type="date" value={formatDateInput(viewEnd)} onChange={e => setViewEnd(parseDate(e.target.value))} style={inp} />
           </div>
 
+          {/* Legend */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }}>
             {Object.entries(STATUS_LABELS).map(([k]) => {
               const s = BAR[k]; if (!s) return null
@@ -472,6 +484,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
             </div>
           </div>
 
+          {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 14 }}>
             <StatCard label="Overdue"     value={ov} sub="past due"  color={ov > 0 ? 'red' : 'default'} />
             <StatCard label="At risk"     value={rk} sub="need attn" color={rk > 0 ? 'amber' : 'default'} />
@@ -479,6 +492,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
             <StatCard label="Done"        value={dn} sub="completed" color="green" />
           </div>
 
+          {/* Gantt */}
           <div style={{ border: '1px solid #222220', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-surface)' }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ borderCollapse: 'collapse', fontSize: 11, minWidth: '100%' }}>
@@ -495,9 +509,9 @@ export default function ProjectPage({ params }: { params: { project: string } })
                 </tr>
                 <tr>
                   <th style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, borderRight: '1px solid var(--border-sub)', borderBottom: '1px solid var(--border-sub)' }} />
-                  {weeks.map((w, i) => (
-                    <th key={`w${i}`} colSpan={w.count} style={{ textAlign: 'center', fontWeight: 600, fontSize: 9, padding: '3px 2px', background: 'var(--gantt-group-bg)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-sub)', color: 'var(--text-faint)', whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
-                      {w.label}
+                  {days.map((day, i) => (
+                    <th key={`dl${i}`} style={{ minWidth: COL_W, width: COL_W, textAlign: 'center', fontSize: 8, fontWeight: 600, padding: '2px 1px', background: 'var(--gantt-group-bg)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-sub)', color: 'var(--text-faint)', letterSpacing: '.02em' }}>
+                      {['M','T','W','T','F'][day.getDay() - 1]}
                     </th>
                   ))}
                   </tr>
@@ -508,6 +522,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                       const isTd     = i === todayI
                       const isHoliday = off.off && off.type === 'ph'
                       const isLeave   = off.off && off.type === 'sl'
+                      // Fix 1: show holiday name only on hover
                       const isHovered = hoveredCol === i
 
                       return (
@@ -526,6 +541,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                           }}
                         >
                           {day.getDate()}
+                          {/* Fix 1: holiday name appears as floating label on hover only */}
                           {(isHoliday || isLeave) && isHovered && (
                             <div style={{
                               position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
@@ -559,14 +575,16 @@ export default function ProjectPage({ params }: { params: { project: string } })
                       </tr>,
 
                       ...grpDepts.map(dept => {
+                        // Fix 4: compact lane-based rows
                         const lanes = computeLanes(dept.id)
                         const deptTasks = filteredTasks.filter(t => t.department_id === dept.id)
                         const hasAnyTask = tasks.some(t => t.department_id === dept.id)
 
+                        // If no tasks at all, show single empty row
                         if (lanes.length === 0) {
                           return (
                             <tr key={dept.id} style={{ borderBottom: '1px solid #141412' }}>
-                              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '12px 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'top', borderRight: '1px solid #222220' }}>
+                              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '0 10px', minWidth: 150, maxWidth: 150, height: 36, verticalAlign: 'middle', borderRight: '1px solid #222220' }}>
                                 <div style={{ fontSize: 11, fontWeight: 400, color: '#555552', fontStyle: 'italic', lineHeight: 1.3 }}>
                                   {dept.full_name}
                                   <span style={{ fontSize: 9, color: '#3a3a37', display: 'block', marginTop: 1 }}>no data</span>
@@ -595,17 +613,20 @@ export default function ProjectPage({ params }: { params: { project: string } })
                           )
                         }
 
+                        // Render compact lanes — dept label only on first lane row
                         return lanes.map((laneEps, laneIdx) => (
                           <tr key={`${dept.id}-lane-${laneIdx}`} style={{ borderBottom: '1px solid #141412' }}>
                             {laneIdx === 0 && (
-                              <td rowSpan={lanes.length} style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '12px 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'top', borderRight: '1px solid #222220' }}>
+                              <td rowSpan={lanes.length} style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '0 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'middle', borderRight: '1px solid #222220' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', lineHeight: 1.3 }}>
                                   {dept.full_name}
                                 </div>
                               </td>
                             )}
 
+                            {/* Build this lane's cells */}
                             {(() => {
+                              // map each column to a bar segment or empty cell
                               const cells: React.ReactNode[] = []
                               let i = 0
                               while (i < total) {
@@ -616,13 +637,13 @@ export default function ProjectPage({ params }: { params: { project: string } })
                                 const isWknd = off.off && off.type === 'weekend'
                                 const cellBg = isHol ? 'var(--gantt-holiday-bg)' : isSL ? 'rgba(100,60,180,0.15)' : isWknd ? 'var(--gantt-weekend)' : 'transparent'
 
+                                // check if any episode in this lane starts here
                                 let barFound = false
                                 for (const ep of laneEps) {
                                   const tsk = deptTasks.find(t => t.episode_id === ep.id)
                                   if (!tsk) continue
-                                  // Sync task positioning with the working day grid
-                                  const s = workDayIndex(days, parseDate(tsk.start_date))
-                                  const e = workDayIndex(days, parseDate(tsk.end_date))
+                                  const s = Math.max(0, dayDiff(viewStart, parseDate(tsk.start_date)))
+                                  const e = Math.min(total - 1, dayDiff(viewStart, parseDate(tsk.end_date)))
                                   if (i === s) {
                                     const span = Math.max(1, e - s + 1)
                                     const barStyle = BAR[tsk.status]
@@ -681,6 +702,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
         </div>
       </div>
 
+      {/* Tooltip */}
       {tooltip && (
         <div style={{ position: 'fixed', left: Math.min(tooltip.x + 14, window.innerWidth - 220), top: Math.min(tooltip.y - 10, window.innerHeight - 170), zIndex: 999, background: 'var(--bg-card)', border: '1px solid #2a2a27', borderRadius: 10, padding: '10px 14px', fontSize: 11, minWidth: 200, pointerEvents: 'none', boxShadow: '0 4px 24px rgba(0,0,0,.5)' }}>
           <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)', fontSize: 12 }}>{tooltip.dept.full_name} — {tooltip.task.episode?.name}</div>

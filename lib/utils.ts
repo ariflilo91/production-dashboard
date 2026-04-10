@@ -61,9 +61,14 @@ export function formatDateInput(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+// Legacy — kept for compatibility but not used for bar positioning
 export function dayDiff(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86400000)
 }
+
+// ─── Working day array (Mon-Fri only) ─────────────────
+// This is the SOURCE OF TRUTH for all Gantt positioning.
+// Every bar start/end must be calculated as an index into this array.
 
 export function buildDays(start: Date, end: Date): Date[] {
   const days: Date[] = []
@@ -77,6 +82,8 @@ export function buildDays(start: Date, end: Date): Date[] {
   return days
 }
 
+// Find the working-day index for a calendar date.
+// Returns the index of that date in the days[] array, or nearest future working day.
 export function workDayIndex(days: Date[], target: Date): number {
   const tStr = formatDateInput(target)
   for (let i = 0; i < days.length; i++) {
@@ -84,6 +91,8 @@ export function workDayIndex(days: Date[], target: Date): number {
   }
   return days.length - 1
 }
+
+// ─── Holiday helpers ──────────────────────────────────
 
 export function isOffDay(date: Date, holidays: Holiday[]): { off: boolean; type?: string; name?: string } {
   const dow = date.getDay()
@@ -105,6 +114,9 @@ export function workdaysRemaining(endDate: Date, today: Date, holidays: Holiday[
   return { val: count, late: false }
 }
 
+// ─── Gantt header builders ────────────────────────────
+
+// Month headers — group consecutive working days by month
 export function buildMonthHeaders(days: Date[]): { label: string; count: number }[] {
   const groups: { label: string; count: number }[] = []
   days.forEach(day => {
@@ -118,31 +130,6 @@ export function buildMonthHeaders(days: Date[]): { label: string; count: number 
   return groups
 }
 
-// FIX: Explicitly typed 'groups' with 'key' property
-export function buildWeekHeaders(days: Date[]): { label: string; count: number; key: string }[] {
-  const groups: { label: string; count: number; key: string }[] = []
-
-  days.forEach(day => {
-    // 1. Get the Monday for THIS specific day
-    const dow = day.getDay()
-    const monday = new Date(day)
-    monday.setDate(day.getDate() - (dow === 0 ? 6 : dow - 1))
-    monday.setHours(0, 0, 0, 0)
-
-    const key = formatDateInput(monday)
-    
-    // 2. Calculate W label based on that Monday
-    const firstDayOfMonth = new Date(monday.getFullYear(), monday.getMonth(), 1)
-    const weekNum = Math.ceil((monday.getDate() + firstDayOfMonth.getDay() - 1) / 7)
-    const label = `W${weekNum}`
-
-    // 3. Logic Change: If the key changes, OR it's the first day, start a new group
-    if (groups.length === 0 || groups[groups.length - 1].key !== key) {
-      groups.push({ label, count: 1, key })
-    } else {
-      groups[groups.length - 1].count++
-    }
-  })
-
-  return groups
-}
+// Week headers — group by Mon-anchored week, label W1-W5 per month
+// The week label is based on which week of the month the Monday belongs to.
+// Cross-month weeks keep the Monday's week number (so W5 Mar stays W5 even if it includes Apr days).
