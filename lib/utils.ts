@@ -46,6 +46,7 @@ export function addDays(date: Date, n: number): Date {
   return d
 }
 
+// Add working days only (skip weekends)
 export function addWorkDays(date: Date, n: number): Date {
   let d = new Date(date)
   let added = 0
@@ -56,6 +57,7 @@ export function addWorkDays(date: Date, n: number): Date {
   return d
 }
 
+// Count working days between two dates (excluding weekends)
 export function workDayDiff(a: Date, b: Date): number {
   if (a > b) return -workDayDiff(b, a)
   let count = 0
@@ -107,6 +109,7 @@ export function workdaysRemaining(endDate: Date, today: Date, holidays: Holiday[
   return { val: count, late: false }
 }
 
+// Build days array EXCLUDING weekends
 export function buildDays(start: Date, end: Date): Date[] {
   const days: Date[] = []
   let cur = new Date(start)
@@ -117,28 +120,40 @@ export function buildDays(start: Date, end: Date): Date[] {
   return days
 }
 
-export function weekOfMonth(date: Date): string {
-  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
-  const weekNum = Math.ceil(date.getDate() / 7)
-  return `W${weekNum}`
+// Get the Monday of the week for a given date
+function getMondayOfWeek(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay() // 0=Sun, 1=Mon...6=Sat
+  const diff = day === 0 ? -6 : 1 - day // adjust so Monday = start
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
-// FIX: Added 'key: string' to the type definition of the groups array
-export function buildWeekHeaders(days: Date[]): { label: string; count: number; key: string }[] {
+// Build week header groups — each group = one Mon-Fri week, labelled W1/W2/W3/W4
+// Week number resets per month based on where the Monday falls
+export function buildWeekHeaders(days: Date[]): { label: string; count: number }[] {
   const groups: { label: string; count: number; key: string }[] = []
+
   days.forEach(day => {
-    const lbl = weekOfMonth(day)
-    const monthKey = `${day.getFullYear()}-${day.getMonth()}-${lbl}`
-    if (!groups.length || groups[groups.length - 1].key !== monthKey) {
-      // Correctly typed object; no 'as any' required
-      groups.push({ label: lbl, count: 1, key: monthKey })
+    const monday = getMondayOfWeek(day)
+    // Use the Monday's date as the unique key for this week
+    const weekKey = monday.toISOString().slice(0, 10)
+    // Week number within the month = which week of the month does this Monday fall in
+    const weekNum = Math.ceil((monday.getDate() + 6) / 7)
+    const label = `W${weekNum}`
+
+    if (!groups.length || groups[groups.length - 1].key !== weekKey) {
+      groups.push({ label, count: 1, key: weekKey })
     } else {
       groups[groups.length - 1].count++
     }
   })
+
   return groups
 }
 
+// Build month header groups for gantt
 export function buildMonthHeaders(days: Date[]): { label: string; count: number }[] {
   const groups: { label: string; count: number }[] = []
   days.forEach(day => {
