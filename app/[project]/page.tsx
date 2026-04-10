@@ -23,11 +23,11 @@ const GROUPS = [
 ]
 
 const BAR: Record<string, React.CSSProperties> = {
-  done:     { background: '#0a1e0a', color: 'var(--green)', border: '1px solid #183018' },
+  done:     { background: 'var(--bar-done-bg)', color: 'var(--green)', border: '1px solid #183018' },
   wip:      { background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid #0d2a48' },
-  review:   { background: '#1e1408', color: 'var(--amber)', border: '1px solid #3a2808' },
-  overdue:  { background: '#1e0808', color: 'var(--red)', border: '1px solid #3a1010' },
-  risk:     { background: '#1e1408', color: 'var(--amber)', border: '1.5px solid #F09595' },
+  review:   { background: 'var(--bar-review-bg)', color: 'var(--amber)', border: '1px solid #3a2808' },
+  overdue:  { background: 'var(--bar-overdue-bg)', color: 'var(--red)', border: '1px solid #3a1010' },
+  risk:     { background: 'var(--bar-review-bg)', color: 'var(--amber)', border: '1.5px solid #F09595' },
   upcoming: { background: 'var(--bar-upcoming-bg)', color: 'var(--bar-upcoming-color)', border: '1px solid var(--bar-upcoming-bdr)' },
 }
 
@@ -178,7 +178,7 @@ function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <input type="text" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="e.g. Ep 10" style={{ ...modalInp, flex: 1, minWidth: 100 }} autoFocus />
             
-            <button onClick={add} disabled={saving} style={{ height: 34, padding: '0 16px', borderRadius: 7, background: '#0a1e0a', color: 'var(--green)', border: '1px solid #183018', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={add} disabled={saving} style={{ height: 34, padding: '0 16px', borderRadius: 7, background: 'var(--bar-done-bg)', color: 'var(--green)', border: '1px solid #183018', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {saving ? '...' : '+ Add'}
             </button>
           </div>
@@ -204,7 +204,7 @@ function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete
   const [status, setStatus]   = useState<Task['status']>(task?.status || 'upcoming')
   const [startDate, setStart] = useState(task?.start_date || '')
   const [endDate, setEnd]     = useState(task?.end_date || '')
-  const [assignedTo, setAssignedTo] = useState<string>(task?.assigned_to ?? '')
+  const [assignedTo, setAssignedTo] = useState<string>((task as any)?.assigned_to ?? '')
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
 
@@ -218,7 +218,7 @@ function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete
     if (endDate < startDate) { setError('End date must be after start date.'); return }
     setSaving(true); setError('')
     try {
-      await onSave({ id: task?.id, department_id: deptId, episode_id: epId, stage_code: stage, status, start_date: startDate, end_date: endDate, assigned_to: assignedTo || null })
+      await onSave({ id: task?.id, department_id: deptId, episode_id: epId, stage_code: stage, status, start_date: startDate, end_date: endDate, assigned_to: assignedTo || null } as any)
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to save.'); setSaving(false) }
   }
 
@@ -262,9 +262,7 @@ function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete
         <label style={lbl}>Assign to</label>
         <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} style={{ ...modalInp, marginBottom: 12 }}>
           <option value="">— Unassigned —</option>
-          {teamMembers.map(m => (
-            <option key={m.id} value={m.id}>{m.name} · {m.role}</option>
-          ))}
+          {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name} · {m.role}</option>)}
         </select>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
@@ -334,13 +332,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
       ])
       setProject(proj); setAllProjects(projs); setEpisodes(eps)
       setDepartments(depts); setTasks(tks); setHolidays(hols)
-      // Load team members separately so a failure doesn't block the page
-      try {
-        const mems = await getTeamMembers()
-        setTeamMembers(mems)
-      } catch (e) {
-        console.warn('Could not load team members:', e)
-      }
+      try { const mems = await getTeamMembers(); setTeamMembers(mems) } catch(e) { console.warn('team members:', e) }
       setLoading(false)
     }
     load()
@@ -388,7 +380,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const dn = tasks.filter(t => t.status === 'done').length
 
   const months = buildMonthHeaders(days)
-  const weeks  = buildWeekHeaders(days)
+  const weeks  = buildWeekHeaders(days))
 
   async function saveTask(data: Partial<Task>) {
     const saved = await upsertTask({ ...data, project_id: projectId } as Task & { project_id: string })
@@ -453,7 +445,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button onClick={() => setShowEpisodes(true)} style={{ ...inp, cursor: 'pointer' }}>Episodes</button>
               <button onClick={() => setShowHolidays(true)} style={{ ...inp, cursor: 'pointer' }}>Holidays</button>
-              <button onClick={() => setModal({ type: 'add' })} style={{ height: 28, padding: '0 14px', borderRadius: 7, background: '#0a1e0a', color: 'var(--green)', border: '1px solid #183018', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={() => setModal({ type: 'add' })} style={{ height: 28, padding: '0 14px', borderRadius: 7, background: 'var(--bar-done-bg)', color: 'var(--green)', border: '1px solid #183018', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                 + Add task
               </button>
             </div>
@@ -524,530 +516,6 @@ export default function ProjectPage({ params }: { params: { project: string } })
                       {w.label}
                     </th>
                   ))}
-                </tr>
-                <tr>
-                  <th style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, borderRight: '1px solid var(--border-sub)', borderBottom: '1px solid var(--border-sub)' }} />
-                  {weeks.map((w, i) => (
-                    <th key={i} colSpan={w.count} style={{ textAlign: 'center', fontWeight: 700, fontSize: 9, padding: '3px 2px', background: 'var(--gantt-group-bg)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-sub)', color: 'var(--text-faint)', whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
-                      {w.label}
-                    </th>
-                  ))}ffect, useState, useRef } from 'react'
-import Sidebar from '@/components/Sidebar'
-import TopNav from '@/components/TopNav'
-import { StatCard } from '@/components/UI'
-import {
-  supabase, getProjects, getEpisodes, getDepartments, getTasks, getHolidays, getTeamMembers,
-  upsertTask, deleteTask as dbDeleteTask, upsertHoliday, deleteHoliday,
-  createEpisode, deleteEpisode,
-  Project, Episode, Department, Task, Holiday, TeamMember,
-} from '@/lib/supabase'
-import {
-  buildDays, dayDiff, addDays, parseDate, formatDate, formatDateInput,
-  isOffDay, getStageFull, DEPT_STAGES, STATUS_LABELS,
-} from '@/lib/utils'
-
-const COL_W = 28
-
-const GROUPS = [
-  { label: 'Pre-production',  depts: ['Script', 'Storyboard', 'Concept', 'Modeling'] },
-  { label: 'Production',      depts: ['Animation', 'Recording', 'Scoring', 'Mixing'] },
-  { label: 'Post-production', depts: ['Render', 'Comp'] },
-]
-
-const BAR: Record<string, React.CSSProperties> = {
-  done:     { background: '#0a1e0a', color: 'var(--green)', border: '1px solid #183018' },
-  wip:      { background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid #0d2a48' },
-  review:   { background: '#1e1408', color: 'var(--amber)', border: '1px solid #3a2808' },
-  overdue:  { background: '#1e0808', color: 'var(--red)', border: '1px solid #3a1010' },
-  risk:     { background: '#1e1408', color: 'var(--amber)', border: '1.5px solid #F09595' },
-  upcoming: { background: 'var(--bar-upcoming-bg)', color: 'var(--bar-upcoming-color)', border: '1px solid var(--bar-upcoming-bdr)' },
-}
-
-const inp: React.CSSProperties = {
-  height: 28, padding: '0 10px', borderRadius: 7,
-  border: '1px solid #2a2a27', background: 'var(--bg-card)',
-  color: 'var(--text-primary)', fontSize: 11, fontFamily: 'inherit',
-}
-
-const modalInp: React.CSSProperties = {
-  width: '100%', height: 34, padding: '0 10px', borderRadius: 7,
-  border: '1px solid #2a2a27', background: 'var(--bg-hover)',
-  color: 'var(--text-primary)', fontSize: 12, fontFamily: 'inherit',
-}
-
-const lbl: React.CSSProperties = {
-  fontSize: 10, color: 'var(--text-dim)', display: 'block', marginBottom: 4,
-  fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em',
-}
-
-// Fix 5: compute default "from" = 4 weeks before today
-function defaultViewStart(): Date {
-  const d = new Date()
-  d.setDate(d.getDate() - 28)
-  d.setHours(12, 0, 0, 0)
-  return d
-}
-function defaultViewEnd(): Date {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() + 1)
-  d.setHours(12, 0, 0, 0)
-  return d
-}
-
-// ─── Holidays Modal ───────────────────────────────────
-function HolidaysModal({ holidays, projectId, onAdd, onRemove, onClose }: {
-  holidays: Holiday[]; projectId: string
-  onAdd: (h: Holiday) => void; onRemove: (id: string) => void; onClose: () => void
-}) {
-  const [date, setDate]     = useState('')
-  const [name, setName]     = useState('')
-  const [type, setType]     = useState<'ph' | 'sl'>('ph')
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
-
-  async function add() {
-    if (!date || !name.trim()) { setError('Please fill in date and name.'); return }
-    setSaving(true)
-    try {
-      const saved = await upsertHoliday({ project_id: projectId, date, name: name.trim(), type })
-      onAdd(saved); setDate(''); setName(''); setError('')
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error') }
-    setSaving(false)
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: 'var(--bg-card)', border: '1px solid #2a2a27', borderRadius: 14, padding: 24, width: '100%', maxWidth: 500, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 48px rgba(0,0,0,.6)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Holidays &amp; special leave</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 18 }}>✕</button>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 14 }}>
-          {holidays.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '16px 0', textAlign: 'center' }}>No holidays added yet.</div>
-            : [...holidays].sort((a, b) => a.date.localeCompare(b.date)).map(h => (
-              <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-surface)', marginBottom: 5, borderLeft: `3px solid ${h.type === 'ph' ? '#854F0B' : '#534AB7'}` }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', minWidth: 90 }}>
-                  {new Date(h.date + 'T12:00:00').toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-                <span style={{ flex: 1, fontSize: 11, color: 'var(--text-dim)' }}>{h.name}</span>
-                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: h.type === 'ph' ? '#231a0a' : '#1a0a2a', color: h.type === 'ph' ? 'var(--amber)' : '#AFA9EC', whiteSpace: 'nowrap' }}>
-                  {h.type === 'ph' ? 'Public holiday' : 'Special leave'}
-                </span>
-                <button onClick={() => { deleteHoliday(h.id); onRemove(h.id) }} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>✕</button>
-              </div>
-            ))
-          }
-        </div>
-        <div style={{ borderTop: '1px solid #222220', paddingTop: 14 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 8 }}>Add day off</div>
-          {error && <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>{error}</div>}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...modalInp, width: 140 }} />
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Holiday name or reason" style={{ ...modalInp, flex: 1, minWidth: 130 }} />
-            <select value={type} onChange={e => setType(e.target.value as 'ph' | 'sl')} style={{ ...modalInp, width: 130 }}>
-              <option value="ph">Public holiday</option>
-              <option value="sl">Special leave</option>
-            </select>
-            <button onClick={add} disabled={saving} style={{ height: 34, padding: '0 16px', borderRadius: 7, background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid #1a4060', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {saving ? '...' : 'Add'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Episode Manager Modal ────────────────────────────
-function EpisodeModal({ episodes, projectId, onAdd, onDelete, onClose }: {
-  episodes: Episode[]; projectId: string
-  onAdd: (e: Episode) => void; onDelete: (id: string) => void; onClose: () => void
-}) {
-  const [newName, setNewName] = useState('')
-  const [newDate, setNewDate] = useState('')
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState('')
-
-  async function add() {
-    if (!newName.trim()) { setError('Please enter an episode name.'); return }
-    setSaving(true)
-    try {
-      const ep = await createEpisode(projectId, newName.trim(), newDate || undefined)
-      onAdd(ep); setNewName(''); setNewDate(''); setError('')
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Error') }
-    setSaving(false)
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ background: 'var(--bg-card)', border: '1px solid #2a2a27', borderRadius: 14, padding: 24, width: '100%', maxWidth: 440, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 48px rgba(0,0,0,.6)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Manage episodes</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 18 }}>✕</button>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 14 }}>
-          {episodes.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '16px 0', textAlign: 'center' }}>No episodes yet.</div>
-            : episodes.map(ep => (
-              <div key={ep.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-surface)', marginBottom: 5 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>{ep.name}</span>
-                {ep.air_date && <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{ep.air_date}</span>}
-                <button onClick={() => {
-                  if (confirm(`Delete ${ep.name}? This will also delete all its tasks.`)) {
-                    deleteEpisode(ep.id); onDelete(ep.id)
-                  }
-                }} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>✕</button>
-              </div>
-            ))
-          }
-        </div>
-        <div style={{ borderTop: '1px solid #222220', paddingTop: 14 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 8 }}>Add new episode</div>
-          {error && <div style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>{error}</div>}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="e.g. Ep 10" style={{ ...modalInp, flex: 1, minWidth: 100 }} autoFocus />
-            
-            <button onClick={add} disabled={saving} style={{ height: 34, padding: '0 16px', borderRadius: 7, background: '#0a1e0a', color: 'var(--green)', border: '1px solid #183018', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {saving ? '...' : '+ Add'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Task Modal ───────────────────────────────────────
-function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete, onClose }: {
-  modal: { type: 'edit' | 'add'; task?: Task; deptId?: string }
-  departments: Department[]; episodes: Episode[]
-  teamMembers: TeamMember[]
-  onSave: (data: Partial<Task>) => Promise<void>
-  onDelete: (id: string) => Promise<void>
-  onClose: () => void
-}) {
-  const task = modal.task
-  const [deptId, setDeptId]   = useState(task?.department_id || modal.deptId || departments[0]?.id || '')
-  const [epId, setEpId]       = useState(task?.episode_id || episodes[0]?.id || '')
-  const [stage, setStage]     = useState(task?.stage_code || '')
-  const [status, setStatus]   = useState<Task['status']>(task?.status || 'upcoming')
-  const [startDate, setStart] = useState(task?.start_date || '')
-  const [endDate, setEnd]     = useState(task?.end_date || '')
-  const [assignedTo, setAssignedTo] = useState<string>(task?.assigned_to ?? '')
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState('')
-
-  const dept   = departments.find(d => d.id === deptId)
-  const stages = dept ? (DEPT_STAGES[dept.name] || []) : []
-
-  useEffect(() => { if (stages.length && !stage) setStage(stages[0]) }, [deptId])
-
-  async function save() {
-    if (!startDate || !endDate) { setError('Please select start and end dates.'); return }
-    if (endDate < startDate) { setError('End date must be after start date.'); return }
-    setSaving(true); setError('')
-    try {
-      await onSave({ id: task?.id, department_id: deptId, episode_id: epId, stage_code: stage, status, start_date: startDate, end_date: endDate, assigned_to: assignedTo || null })
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to save.'); setSaving(false) }
-  }
-
-  async function remove() {
-    if (!task?.id) return
-    setSaving(true)
-    try { await onDelete(task.id) }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to delete.'); setSaving(false) }
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: 'var(--bg-card)', border: '1px solid #2a2a27', borderRadius: 14, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 8px 48px rgba(0,0,0,.5)' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 18, color: 'var(--text-primary)' }}>
-          {modal.type === 'edit' ? `${dept?.full_name || ''} — ${task?.episode?.name || ''}` : 'Add new task'}
-        </div>
-
-        {modal.type === 'add' && (
-          <>
-            <label style={lbl}>Department</label>
-            <select value={deptId} onChange={e => { setDeptId(e.target.value); setStage('') }} style={{ ...modalInp, marginBottom: 12 }}>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.full_name}</option>)}
-            </select>
-            <label style={lbl}>Episode</label>
-            <select value={epId} onChange={e => setEpId(e.target.value)} style={{ ...modalInp, marginBottom: 12 }}>
-              {episodes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
-          </>
-        )}
-
-        <label style={lbl}>Stage</label>
-        <select value={stage} onChange={e => setStage(e.target.value)} style={{ ...modalInp, marginBottom: 12 }}>
-          {stages.map(s => <option key={s} value={s}>{s} — {getStageFull(dept?.name || '', s)}</option>)}
-        </select>
-
-        <label style={lbl}>Status</label>
-        <select value={status} onChange={e => setStatus(e.target.value as Task['status'])} style={{ ...modalInp, marginBottom: 12 }}>
-          {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-
-        <label style={lbl}>Assign to</label>
-        <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} style={{ ...modalInp, marginBottom: 12 }}>
-          <option value="">— Unassigned —</option>
-          {teamMembers.map(m => (
-            <option key={m.id} value={m.id}>{m.name} · {m.role}</option>
-          ))}
-        </select>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-          <div>
-            <label style={lbl}>Start date</label>
-            {/* Fix 2: end date min is locked to start date */}
-            <input type="date" value={startDate} onChange={e => {
-              setStart(e.target.value)
-              // if end is before new start, clear it
-              if (endDate && e.target.value > endDate) setEnd('')
-            }} style={modalInp} />
-          </div>
-          <div>
-            <label style={lbl}>End date</label>
-            {/* Fix 2: min attribute ensures end >= start */}
-            <input type="date" value={endDate} min={startDate || undefined} onChange={e => setEnd(e.target.value)} style={modalInp} />
-          </div>
-        </div>
-
-        {error && <div style={{ background: '#2a0808', border: '1px solid #3a1010', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: 'var(--red)', marginBottom: 14 }}>{error}</div>}
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={save} disabled={saving} style={{ flex: 1, height: 38, borderRadius: 8, background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid #1a4060', fontSize: 13, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1, fontFamily: 'inherit' }}>
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-          {modal.type === 'edit' && task && (
-            <button onClick={remove} disabled={saving} style={{ height: 38, padding: '0 16px', borderRadius: 8, border: '1px solid #3a1010', color: 'var(--red)', background: 'transparent', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Delete</button>
-          )}
-          <button onClick={onClose} style={{ height: 38, padding: '0 16px', borderRadius: 8, border: '1px solid #2a2a27', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main Page ────────────────────────────────────────
-export default function ProjectPage({ params }: { params: { project: string } }) {
-  const projectId = params.project
-  const [allProjects, setAllProjects]   = useState<Project[]>([])
-  const [project, setProject]           = useState<Project | null>(null)
-  const [episodes, setEpisodes]         = useState<Episode[]>([])
-  const [departments, setDepartments]   = useState<Department[]>([])
-  const [tasks, setTasks]               = useState<Task[]>([])
-  const [holidays, setHolidays]         = useState<Holiday[]>([])
-  const [loading, setLoading]           = useState(true)
-  // Fix 5: dynamic default — 4 weeks back to 1 year forward
-  const [viewStart, setViewStart]       = useState(defaultViewStart)
-  const [viewEnd, setViewEnd]           = useState(defaultViewEnd)
-  const [filterDept, setFilterDept]     = useState('')
-  const [filterEp, setFilterEp]         = useState('')
-  // Fix 1: which column index is hovered (for holiday tooltip)
-  const [hoveredCol, setHoveredCol]     = useState<number | null>(null)
-  const [tooltip, setTooltip]           = useState<{ x: number; y: number; task: Task; dept: Department } | null>(null)
-  const [modal, setModal]               = useState<{ type: 'edit' | 'add'; task?: Task; deptId?: string } | null>(null)
-  const [showHolidays, setShowHolidays] = useState(false)
-  const [showEpisodes, setShowEpisodes] = useState(false)
-  const [teamMembers, setTeamMembers]   = useState<TeamMember[]>([])
-  const today = new Date()
-  const dragRef = useRef<{ id: string; side: 'l' | 'r' | 'move'; startX: number; origStart: Date; origEnd: Date; lastCols: number } | null>(null)
-
-  useEffect(() => {
-    async function load() {
-      const { data: proj } = await supabase.from('projects').select('*').eq('id', projectId).single()
-      const [projs, eps, depts, tks, hols] = await Promise.all([
-        getProjects(), getEpisodes(projectId), getDepartments(projectId),
-        getTasks(projectId), getHolidays(projectId),
-      ])
-      setProject(proj); setAllProjects(projs); setEpisodes(eps)
-      setDepartments(depts); setTasks(tks); setHolidays(hols)
-      // Load team members separately so a failure doesn't block the page
-      try {
-        const mems = await getTeamMembers()
-        setTeamMembers(mems)
-      } catch (e) {
-        console.warn('Could not load team members:', e)
-      }
-      setLoading(false)
-    }
-    load()
-  }, [projectId])
-
-  useEffect(() => {
-    const move = (e: MouseEvent) => {
-      if (!dragRef.current) return
-      const cols = Math.round((e.clientX - dragRef.current.startX) / COL_W)
-      if (cols === dragRef.current.lastCols) return
-      dragRef.current.lastCols = cols
-      const { id, side, origStart, origEnd } = dragRef.current
-      setTasks(prev => prev.map(t => {
-        if (t.id !== id) return t
-        const clone = { ...t }
-        if (side === 'r') { const nd = addDays(origEnd, cols); clone.end_date = formatDateInput(nd < origStart ? origStart : nd) } else if (side === 'move') { const dur = dayDiff(origStart, origEnd); const ns = addDays(origStart, cols); const ne = addDays(ns, dur); clone.start_date = formatDateInput(ns); clone.end_date = formatDateInput(ne) }
-        else { const nd = addDays(origStart, cols); clone.start_date = formatDateInput(nd > origEnd ? origEnd : nd) }
-        return clone
-      }))
-    }
-    const up = () => { dragRef.current = null }
-    window.addEventListener('mousemove', move)
-    window.addEventListener('mouseup', up)
-    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
-  }, [])
-
-  if (loading || !project) return (
-    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', color: 'var(--text-dim)' }}>Loading...</div>
-  )
-
-  const days    = buildDays(viewStart, viewEnd)
-  const total   = days.length
-  const todayI  = dayDiff(viewStart, today)
-  const sidebarProjects = allProjects.map(p => ({ id: p.id, name: p.name, color: p.color }))
-
-  const filteredTasks = tasks.filter(t => {
-    if (filterDept) { const d = departments.find(d => d.id === t.department_id); if (!d || d.name !== filterDept) return false }
-    if (filterEp && t.episode_id !== filterEp) return false
-    return true
-  })
-
-  const ov = tasks.filter(t => t.status === 'overdue').length
-  const rk = tasks.filter(t => t.status === 'risk').length
-  const wp = tasks.filter(t => t.status === 'wip' || t.status === 'review').length
-  const dn = tasks.filter(t => t.status === 'done').length
-
-  const months = buildMonthHeaders(days)
-  const weeks  = buildWeekHeaders(days)
-
-  async function saveTask(data: Partial<Task>) {
-    const saved = await upsertTask({ ...data, project_id: projectId } as Task & { project_id: string })
-    setTasks(prev => {
-      const idx = prev.findIndex(t => t.id === saved.id)
-      if (idx >= 0) { const n = [...prev]; n[idx] = { ...saved, department: prev[idx]?.department, episode: prev[idx]?.episode }; return n }
-      return [...prev, saved]
-    })
-    setModal(null)
-  }
-
-  async function removeTask(id: string) {
-    await dbDeleteTask(id)
-    setTasks(prev => prev.filter(t => t.id !== id))
-    setModal(null)
-  }
-
-  function getDeptByName(name: string) { return departments.find(d => d.name === name) }
-
-  // Fix 4: compute non-overlapping rows per department
-  // For each dept, pack episodes into lanes (rows) so overlapping bars go on separate rows
-  // but non-overlapping bars share a single row
-  function computeLanes(deptId: string): Episode[][] {
-    const deptTasks = filteredTasks.filter(t => t.department_id === deptId)
-    const lanes: Episode[][] = []
-
-    const epList = filterEp
-      ? episodes.filter(e => e.id === filterEp)
-      : episodes
-
-    for (const ep of epList) {
-      const tsk = deptTasks.find(t => t.episode_id === ep.id)
-      if (!tsk) continue // skip episodes with no task in this dept
-
-      const tStart = dayDiff(viewStart, parseDate(tsk.start_date))
-      const tEnd   = dayDiff(viewStart, parseDate(tsk.end_date))
-
-      // find first lane where this task doesn't overlap
-      let placed = false
-      for (const lane of lanes) {
-        const overlaps = lane.some(laneEp => {
-          const lt = deptTasks.find(t => t.episode_id === laneEp.id)
-          if (!lt) return false
-          const ls = dayDiff(viewStart, parseDate(lt.start_date))
-          const le = dayDiff(viewStart, parseDate(lt.end_date))
-          return tStart <= le && tEnd >= ls
-        })
-        if (!overlaps) { lane.push(ep); placed = true; break }
-      }
-      if (!placed) lanes.push([ep])
-    }
-    return lanes
-  }
-
-  return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
-      <Sidebar projects={sidebarProjects} activeProjectId={projectId} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <TopNav
-          breadcrumbs={[{ label: 'Projects' }, { label: project.name }, { label: 'Timeline' }]}
-          actions={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button onClick={() => setShowEpisodes(true)} style={{ ...inp, cursor: 'pointer' }}>Episodes</button>
-              <button onClick={() => setShowHolidays(true)} style={{ ...inp, cursor: 'pointer' }}>Holidays</button>
-              <button onClick={() => setModal({ type: 'add' })} style={{ height: 28, padding: '0 14px', borderRadius: 7, background: '#0a1e0a', color: 'var(--green)', border: '1px solid #183018', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                + Add task
-              </button>
-            </div>
-          }
-        />
-
-        <div style={{ padding: '14px 20px', overflowY: 'auto', flex: 1 }}>
-          {/* Filters */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-            <select value={filterDept} onChange={e => setFilterDept(e.target.value)} style={inp}>
-              <option value="">All departments</option>
-              {departments.map(d => <option key={d.id} value={d.name}>{d.full_name}</option>)}
-            </select>
-            <select value={filterEp} onChange={e => setFilterEp(e.target.value)} style={inp}>
-              <option value="">All episodes</option>
-              {episodes.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
-            <div style={{ width: 1, height: 18, background: 'var(--border)' }} />
-            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>From</span>
-            <input type="date" value={formatDateInput(viewStart)} onChange={e => setViewStart(parseDate(e.target.value))} style={inp} />
-            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>to</span>
-            <input type="date" value={formatDateInput(viewEnd)} onChange={e => setViewEnd(parseDate(e.target.value))} style={inp} />
-          </div>
-
-          {/* Legend */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10, alignItems: 'center' }}>
-            {Object.entries(STATUS_LABELS).map(([k]) => {
-              const s = BAR[k]; if (!s) return null
-              return (
-                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: s.background as string, border: s.border as string }} />
-                  {STATUS_LABELS[k]}
-                </div>
-              )
-            })}
-            <div style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-faint)', fontStyle: 'italic' }}>
-              Drag edges to resize · Click bar to edit
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 14 }}>
-            <StatCard label="Overdue"     value={ov} sub="past due"  color={ov > 0 ? 'red' : 'default'} />
-            <StatCard label="At risk"     value={rk} sub="need attn" color={rk > 0 ? 'amber' : 'default'} />
-            <StatCard label="In progress" value={wp} sub="active"    color="blue" />
-            <StatCard label="Done"        value={dn} sub="completed" color="green" />
-          </div>
-
-          {/* Gantt */}
-          <div style={{ border: '1px solid #222220', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-surface)' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse', fontSize: 11, minWidth: '100%' }}>
-                <thead>
-                  <tr>
-                    <th rowSpan={2} style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '1px solid #222220', borderBottom: '1px solid #222220' }}>
-                      Department
-                    </th>
-                    {months.map((m, i) => (
-                      <th key={i} colSpan={m.count} style={{ textAlign: 'center', fontWeight: 700, fontSize: 10, padding: '6px 4px', background: 'var(--bg-surface)', borderRight: '1px solid #1e1e1c', borderBottom: '1px solid #222220', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
-                        {m.label}
-                      </th>
-                    ))}
                   </tr>
                   <tr>
                     {days.map((day, i) => {
@@ -1068,7 +536,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                             padding: '3px 1px', position: 'relative',
                             background: isHoliday ? '#2a1400' : isLeave ? '#1a1028' : 'var(--bg-base)',
                             borderRight: '1px solid #141412', borderBottom: '1px solid #222220',
-                            color: isHoliday ? '#EF9F27' : isLeave ? '#9b7ec8' : isTd ? 'var(--blue)' : off.off ? 'var(--border)' : 'var(--text-faint)',
+                            color: isHoliday ? '#EF9F27' : isLeave ? '#9b7ec8' : isTd ? 'var(--blue)' : off.off ? 'var(--border)' : '#555552',
                             fontWeight: isTd ? 700 : 400,
                             cursor: (isHoliday || isLeave) ? 'help' : 'default',
                           }}
@@ -1118,7 +586,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                           return (
                             <tr key={dept.id} style={{ borderBottom: '1px solid #141412' }}>
                               <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '0 10px', minWidth: 150, maxWidth: 150, height: 36, verticalAlign: 'middle', borderRight: '1px solid #222220' }}>
-                                <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-faint)', fontStyle: 'italic', lineHeight: 1.3 }}>
+                                <div style={{ fontSize: 11, fontWeight: 400, color: '#555552', fontStyle: 'italic', lineHeight: 1.3 }}>
                                   {dept.full_name}
                                   <span style={{ fontSize: 9, color: '#3a3a37', display: 'block', marginTop: 1 }}>no data</span>
                                 </div>
@@ -1135,7 +603,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                                     <div style={{ position: 'absolute', inset: 0, background: cellBg }} />
                                     {isTd && <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1.5, background: 'var(--blue-mid)', opacity: 0.6, transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 5 }} />}
                                     {!hasAnyTask && i === Math.floor(total / 2) && (
-                                      <div onClick={() => setModal({ type: 'add', deptId: dept.id })} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', height: 20, padding: '0 8px', borderRadius: 4, border: '1px dashed #2a2a27', fontSize: 10, color: 'var(--text-faint)', display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap', zIndex: 2 }}>
+                                      <div onClick={() => setModal({ type: 'add', deptId: dept.id })} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', height: 20, padding: '0 8px', borderRadius: 4, border: '1px dashed #2a2a27', fontSize: 10, color: '#555552', display: 'flex', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap', zIndex: 2 }}>
                                         + add
                                       </div>
                                     )}
@@ -1181,7 +649,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                                     const span = Math.max(1, e - s + 1)
                                     const barStyle = BAR[tsk.status]
                                     cells.push(
-                                      <td key={i} colSpan={span} style={{ padding: '0 2px', height: 36, verticalAlign: 'middle', position: 'relative', background: isTd ? 'var(--gantt-today-bg)' : isHol ? 'var(--gantt-holiday-bg)' : 'transparent' }}>
+                                      <td key={i} colSpan={span} style={{ padding: '0 2px', height: 36, verticalAlign: 'middle', position: 'relative', background: isTd ? 'var(--gantt-today-bg)' : isHol ? 'rgba(180,80,0,0.10)' : 'transparent' }}>
                                         {isTd && <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1.5, background: 'var(--blue-mid)', opacity: 0.6, transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 5 }} />}
                                         <div
                                           style={{ height: 22, borderRadius: 5, display: 'flex', alignItems: 'center', position: 'relative', cursor: 'pointer', userSelect: 'none', ...barStyle }}
@@ -1244,7 +712,6 @@ export default function ProjectPage({ params }: { params: { project: string } })
             ['Status', STATUS_LABELS[tooltip.task.status]],
             ['Start', formatDate(parseDate(tooltip.task.start_date))],
             ['End', formatDate(parseDate(tooltip.task.end_date))],
-            ...(tooltip.task.assigned_to ? [['Assigned to', teamMembers.find(m=>m.id===tooltip.task.assigned_to)?.name ?? '—']] : []),
           ].map(([l, v]) => (
             <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
               <span style={{ color: 'var(--text-dim)' }}>{l}</span>
