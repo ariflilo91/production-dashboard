@@ -46,34 +46,6 @@ export function addDays(date: Date, n: number): Date {
   return d
 }
 
-// Add working days only (skip weekends)
-export function addWorkDays(date: Date, n: number): Date {
-  let d = new Date(date)
-  let added = 0
-  while (added < n) {
-    d = addDays(d, 1)
-    if (!isWeekend(d)) added++
-  }
-  return d
-}
-
-// Count working days between two dates (excluding weekends)
-export function workDayDiff(a: Date, b: Date): number {
-  if (a > b) return -workDayDiff(b, a)
-  let count = 0
-  let cur = new Date(a)
-  cur.setDate(cur.getDate() + 1)
-  while (cur <= b) {
-    if (!isWeekend(cur)) count++
-    cur = addDays(cur, 1)
-  }
-  return count
-}
-
-export function dayDiff(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
-}
-
 export function parseDate(str: string): Date {
   return new Date(str + 'T12:00:00')
 }
@@ -89,6 +61,39 @@ export function formatDateInput(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+// Legacy — kept for compatibility but not used for bar positioning
+export function dayDiff(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / 86400000)
+}
+
+// ─── Working day array (Mon-Fri only) ─────────────────
+// This is the SOURCE OF TRUTH for all Gantt positioning.
+// Every bar start/end must be calculated as an index into this array.
+
+export function buildDays(start: Date, end: Date): Date[] {
+  const days: Date[] = []
+  const cur = new Date(start)
+  cur.setHours(12, 0, 0, 0)
+  const endMs = new Date(end).setHours(12, 0, 0, 0)
+  while (cur.getTime() <= endMs) {
+    if (!isWeekend(cur)) days.push(new Date(cur))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return days
+}
+
+// Find the working-day index for a calendar date.
+// Returns the index of that date in the days[] array, or nearest future working day.
+export function workDayIndex(days: Date[], target: Date): number {
+  const tStr = formatDateInput(target)
+  for (let i = 0; i < days.length; i++) {
+    if (formatDateInput(days[i]) >= tStr) return i
+  }
+  return days.length - 1
+}
+
+// ─── Holiday helpers ──────────────────────────────────
+
 export function isOffDay(date: Date, holidays: Holiday[]): { off: boolean; type?: string; name?: string } {
   const dow = date.getDay()
   if (dow === 0 || dow === 6) return { off: true, type: 'weekend' }
@@ -99,61 +104,19 @@ export function isOffDay(date: Date, holidays: Holiday[]): { off: boolean; type?
 }
 
 export function workdaysRemaining(endDate: Date, today: Date, holidays: Holiday[]): { val: number; late: boolean } {
-  if (today > endDate) return { val: dayDiff(endDate, today), late: true }
+  if (today > endDate) return { val: Math.abs(dayDiff(endDate, today)), late: true }
   let count = 0
-  let cur = new Date(today)
+  const cur = new Date(today)
   while (cur <= endDate) {
     if (!isOffDay(cur, holidays).off) count++
-    cur = addDays(cur, 1)
+    cur.setDate(cur.getDate() + 1)
   }
   return { val: count, late: false }
 }
 
-// Build days array EXCLUDING weekends
-export function buildDays(start: Date, end: Date): Date[] {
-  const days: Date[] = []
-  let cur = new Date(start)
-  while (cur <= end) {
-    if (!isWeekend(cur)) days.push(new Date(cur))
-    cur = addDays(cur, 1)
-  }
-  return days
-}
+// ─── Gantt header builders ────────────────────────────
 
-// Get the Monday of the week for a given date
-function getMondayOfWeek(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay() // 0=Sun, 1=Mon...6=Sat
-  const diff = day === 0 ? -6 : 1 - day // adjust so Monday = start
-  d.setDate(d.getDate() + diff)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-// Build week header groups — each group = one Mon-Fri week, labelled W1/W2/W3/W4
-// Week number resets per month based on where the Monday falls
-export function buildWeekHeaders(days: Date[]): { label: string; count: number }[] {
-  const groups: { label: string; count: number; key: string }[] = []
-
-  days.forEach(day => {
-    const monday = getMondayOfWeek(day)
-    // Use the Monday's date as the unique key for this week
-    const weekKey = monday.toISOString().slice(0, 10)
-    // Week number within the month = which week of the month does this Monday fall in
-    const weekNum = Math.ceil((monday.getDate() + 6) / 7)
-    const label = `W${weekNum}`
-
-    if (!groups.length || groups[groups.length - 1].key !== weekKey) {
-      groups.push({ label, count: 1, key: weekKey })
-    } else {
-      groups[groups.length - 1].count++
-    }
-  })
-
-  return groups
-}
-
-// Build month header groups for gantt
+// Month headers — group consecutive working days by month
 export function buildMonthHeaders(days: Date[]): { label: string; count: number }[] {
   const groups: { label: string; count: number }[] = []
   days.forEach(day => {
@@ -164,5 +127,33 @@ export function buildMonthHeaders(days: Date[]): { label: string; count: number 
       groups[groups.length - 1].count++
     }
   })
+  return groups
+}
+
+// Week headers — group by Mon-anchored week, label W1-W5 per month
+// The week label is based on which week of the month the Monday belongs to.
+// Cross-month weeks keep the Monday's week number (so W5 Mar stays W5 even if it includes Apr days).
+export function buildWeekHeaders(days: Date[]): { label: string; count: number }[] {
+  const groups: { label: string; count: number; key: string }[] = []
+
+  days.forEach(day => {
+    // Find this day's Monday
+    const dow = day.getDay() // 0=Sun,1=Mon...6=Sat
+    const monday = new Date(day)
+    monday.setDate(day.getDate() - (dow === 0 ? 6 : dow - 1))
+    monday.setHours(0, 0, 0, 0)
+
+    const key = formatDateInput(monday)
+    // Week number = which week of the month does this Monday fall in?
+    const weekNum = Math.ceil(monday.getDate() / 7)
+    const label = `W${weekNum}`
+
+    if (!groups.length || groups[groups.length - 1].key !== key) {
+      groups.push({ label, count: 1, key })
+    } else {
+      groups[groups.length - 1].count++
+    }
+  })
+
   return groups
 }

@@ -10,7 +10,8 @@ import {
   Project, Episode, Department, Task, Holiday, TeamMember,
 } from '@/lib/supabase'
 import {
-  buildDays, buildWeekHeaders, buildMonthHeaders, dayDiff, addDays, parseDate, formatDate, formatDateInput,
+  buildDays, buildWeekHeaders, buildMonthHeaders, workDayIndex,
+  addDays, parseDate, formatDate, formatDateInput,
   isOffDay, getStageFull, DEPT_STAGES, STATUS_LABELS,
 } from '@/lib/utils'
 
@@ -28,7 +29,7 @@ const BAR: Record<string, React.CSSProperties> = {
   review:   { background: 'var(--bar-review-bg)', color: 'var(--amber)', border: '1px solid #3a2808' },
   overdue:  { background: 'var(--bar-overdue-bg)', color: 'var(--red)', border: '1px solid #3a1010' },
   risk:     { background: 'var(--bar-review-bg)', color: 'var(--amber)', border: '1.5px solid #F09595' },
-  upcoming: { background: 'var(--bar-upcoming-bg)', color: 'var(--bar-upcoming-color)', border: '1px solid var(--bar-upcoming-bdr)' },
+  upcoming: { background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid #2a2a52' },
 }
 
 const inp: React.CSSProperties = {
@@ -258,13 +259,11 @@ function TaskModal({ modal, departments, episodes, teamMembers, onSave, onDelete
         <select value={status} onChange={e => setStatus(e.target.value as Task['status'])} style={{ ...modalInp, marginBottom: 12 }}>
           {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-
         <label style={lbl}>Assign to</label>
         <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} style={{ ...modalInp, marginBottom: 12 }}>
           <option value="">— Unassigned —</option>
           {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name} · {m.role}</option>)}
         </select>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           <div>
             <label style={lbl}>Start date</label>
@@ -332,7 +331,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
       ])
       setProject(proj); setAllProjects(projs); setEpisodes(eps)
       setDepartments(depts); setTasks(tks); setHolidays(hols)
-      try { const mems = await getTeamMembers(); setTeamMembers(mems) } catch(e) { console.warn('team members:', e) }
+      try { const mems = await getTeamMembers(); setTeamMembers(mems) } catch(e) {}
       setLoading(false)
     }
     load()
@@ -380,7 +379,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const dn = tasks.filter(t => t.status === 'done').length
 
   const months = buildMonthHeaders(days)
-  const weeks  = buildWeekHeaders(days)
+  const weeks  = buildWeekHeaders(days))
 
   async function saveTask(data: Partial<Task>) {
     const saved = await upsertTask({ ...data, project_id: projectId } as Task & { project_id: string })
@@ -415,8 +414,8 @@ export default function ProjectPage({ params }: { params: { project: string } })
       const tsk = deptTasks.find(t => t.episode_id === ep.id)
       if (!tsk) continue // skip episodes with no task in this dept
 
-      const tStart = dayDiff(viewStart, parseDate(tsk.start_date))
-      const tEnd   = dayDiff(viewStart, parseDate(tsk.end_date))
+      const tStart = workDayIndex(days, parseDate(tsk.start_date))
+      const tEnd   = workDayIndex(days, parseDate(tsk.end_date))
 
       // find first lane where this task doesn't overlap
       let placed = false
@@ -424,8 +423,8 @@ export default function ProjectPage({ params }: { params: { project: string } })
         const overlaps = lane.some(laneEp => {
           const lt = deptTasks.find(t => t.episode_id === laneEp.id)
           if (!lt) return false
-          const ls = dayDiff(viewStart, parseDate(lt.start_date))
-          const le = dayDiff(viewStart, parseDate(lt.end_date))
+          const ls = workDayIndex(days, parseDate(lt.start_date))
+          const le = workDayIndex(days, parseDate(lt.end_date))
           return tStart <= le && tEnd >= ls
         })
         if (!overlaps) { lane.push(ep); placed = true; break }
@@ -500,7 +499,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
               <table style={{ borderCollapse: 'collapse', fontSize: 11, minWidth: '100%' }}>
                 <thead>
                   <tr>
-                    <th rowSpan={3} style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '1px solid var(--border-sub)', borderBottom: '1px solid var(--border-sub)' }}>
+                    <th rowSpan={2} style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '1px solid #222220', borderBottom: '1px solid #222220' }}>
                       Department
                     </th>
                     {months.map((m, i) => (
@@ -512,7 +511,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                 <tr>
                   <th style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, borderRight: '1px solid var(--border-sub)', borderBottom: '1px solid var(--border-sub)' }} />
                   {weeks.map((w, i) => (
-                    <th key={`w${i}`} colSpan={w.count} style={{ textAlign: 'center', fontWeight: 700, fontSize: 9, padding: '3px 2px', background: 'var(--gantt-group-bg)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-sub)', color: 'var(--text-faint)', whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
+                    <th key={`w${i}`} colSpan={w.count} style={{ textAlign: 'center', fontWeight: 600, fontSize: 9, padding: '3px 2px', background: 'var(--gantt-group-bg)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-sub)', color: 'var(--text-faint)', whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
                       {w.label}
                     </th>
                   ))}
@@ -619,7 +618,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                         return lanes.map((laneEps, laneIdx) => (
                           <tr key={`${dept.id}-lane-${laneIdx}`} style={{ borderBottom: '1px solid #141412' }}>
                             {laneIdx === 0 && (
-                              <td rowSpan={lanes.length} style={{ position: 'sticky', left: 0, zIndex: 4, background: 'var(--bg-card)', padding: '0 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'middle', borderRight: '2px solid var(--border-sub)', boxShadow: '2px 0 6px rgba(0,0,0,0.2)' }}>
+                              <td rowSpan={lanes.length} style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '0 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'middle', borderRight: '1px solid #222220' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', lineHeight: 1.3 }}>
                                   {dept.full_name}
                                 </div>

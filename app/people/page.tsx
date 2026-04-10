@@ -95,18 +95,14 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
   const viewEnd   = defaultEnd()
   const days      = buildDays(viewStart, viewEnd)
   const total     = days.length
-  const todayI    = dayDiff(viewStart, today)
+  const todayI    = workDayIndex(days, today)
 
   useEffect(() => {
     getTasksForMember(member.id).then(t => { setTasks(t); setLoading(false) })
   }, [member.id])
 
-  const months: { label: string; count: number }[] = []
-  days.forEach(day => {
-    const lbl = day.toLocaleString('en',{ month:'short', year:'numeric' })
-    if (!months.length || months[months.length-1].label!==lbl) months.push({ label:lbl, count:1 })
-    else months[months.length-1].count++
-  })
+  const months = buildMonthHeaders(days)
+  const weeks  = buildWeekHeaders(days))
 
   const ov = tasks.filter(t=>t.status==='overdue').length
   const rk = tasks.filter(t=>t.status==='risk').length
@@ -164,8 +160,16 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
                       Task
                     </th>
                     {months.map((m,i) => (
-                      <th key={i} colSpan={m.count} style={{ textAlign:'center', fontWeight:700, fontSize:10, padding:'6px 4px', background:'var(--bg-surface)', borderRight:'1px solid var(--border-dim)', borderBottom:'1px solid var(--border-sub)', color:'var(--text-dim)', whiteSpace:'nowrap' }}>
+                      <th key={i} colSpan={m.count} style={{ textAlign:'center', fontWeight:700, fontSize:10, padding:'6px 4px', background:'var(--bg-surface)', borderRight:'1px solid var(--border-sub)', borderBottom:'1px solid var(--border-dim)', color:'var(--text-dim)', whiteSpace:'nowrap' }}>
                         {m.label}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    <th style={{ position:'sticky', left:0, zIndex:8, background:'var(--bg-surface)', minWidth:200, maxWidth:200, borderRight:'1px solid var(--border-sub)', borderBottom:'1px solid var(--border-sub)' }} />
+                    {weeks.map((w,i) => (
+                      <th key={`w${i}`} colSpan={w.count} style={{ textAlign:'center', fontWeight:600, fontSize:9, padding:'3px 2px', background:'var(--gantt-group-bg)', borderRight:'1px solid var(--border-dim)', borderBottom:'1px solid var(--border-sub)', color:'var(--text-faint)', whiteSpace:'nowrap', letterSpacing:'.04em' }}>
+                        {w.label}
                       </th>
                     ))}
                   </tr>
@@ -196,8 +200,8 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
                       </tr>,
                       // Task rows
                       ...ptasks.map(task => {
-                        const s = Math.max(0, dayDiff(viewStart, parseDate(task.start_date)))
-                        const e = Math.min(total-1, dayDiff(viewStart, parseDate(task.end_date)))
+                        const s = Math.max(0, workDayIndex(days, parseDate(task.start_date)))
+                        const e = Math.min(total-1, workDayIndex(days, parseDate(task.end_date)))
                         const span = Math.max(1, e-s+1)
                         const barStyle = BAR[task.status] ?? BAR.upcoming
 
