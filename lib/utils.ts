@@ -46,7 +46,6 @@ export function addDays(date: Date, n: number): Date {
   return d
 }
 
-// Add working days only (skip weekends)
 export function addWorkDays(date: Date, n: number): Date {
   let d = new Date(date)
   let added = 0
@@ -57,7 +56,6 @@ export function addWorkDays(date: Date, n: number): Date {
   return d
 }
 
-// Count working days between two dates (excluding weekends)
 export function workDayDiff(a: Date, b: Date): number {
   if (a > b) return -workDayDiff(b, a)
   let count = 0
@@ -109,7 +107,6 @@ export function workdaysRemaining(endDate: Date, today: Date, holidays: Holiday[
   return { val: count, late: false }
 }
 
-// Build days array EXCLUDING weekends
 export function buildDays(start: Date, end: Date): Date[] {
   const days: Date[] = []
   let cur = new Date(start)
@@ -120,22 +117,21 @@ export function buildDays(start: Date, end: Date): Date[] {
   return days
 }
 
-// Get week-of-month label (W1..W5) for a date
 export function weekOfMonth(date: Date): string {
   const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
-  // Find the first Monday of the month (or use day 1 if it's Mon)
   const weekNum = Math.ceil(date.getDate() / 7)
   return `W${weekNum}`
 }
 
-// Build week header groups for gantt — grouped by month+week
-export function buildWeekHeaders(days: Date[]): { label: string; count: number }[] {
-  const groups: { label: string; count: number }[] = []
+// FIX: Added 'key: string' to the type definition of the groups array
+export function buildWeekHeaders(days: Date[]): { label: string; count: number; key: string }[] {
+  const groups: { label: string; count: number; key: string }[] = []
   days.forEach(day => {
     const lbl = weekOfMonth(day)
     const monthKey = `${day.getFullYear()}-${day.getMonth()}-${lbl}`
     if (!groups.length || groups[groups.length - 1].key !== monthKey) {
-      groups.push({ label: lbl, count: 1, key: monthKey } as any)
+      // Correctly typed object; no 'as any' required
+      groups.push({ label: lbl, count: 1, key: monthKey })
     } else {
       groups[groups.length - 1].count++
     }
@@ -143,7 +139,6 @@ export function buildWeekHeaders(days: Date[]): { label: string; count: number }
   return groups
 }
 
-// Build month header groups for gantt
 export function buildMonthHeaders(days: Date[]): { label: string; count: number }[] {
   const groups: { label: string; count: number }[] = []
   days.forEach(day => {
