@@ -380,7 +380,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
   const dn = tasks.filter(t => t.status === 'done').length
 
   const months = buildMonthHeaders(days)
-  const weeks  = buildWeekHeaders(days))
+  const weeks  = buildWeekHeaders(days)
 
   async function saveTask(data: Partial<Task>) {
     const saved = await upsertTask({ ...data, project_id: projectId } as Task & { project_id: string })
