@@ -508,7 +508,6 @@ export default function ProjectPage({ params }: { params: { project: string } })
                   ))}
                 </tr>
                 <tr>
-                  <th style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, borderRight: '1px solid var(--border-sub)', borderBottom: '1px solid var(--border-sub)' }} />
                   {days.map((day, i) => (
                     <th key={`dl${i}`} style={{ minWidth: COL_W, width: COL_W, textAlign: 'center', fontSize: 8, fontWeight: 600, padding: '2px 1px', background: 'var(--gantt-group-bg)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-sub)', color: 'var(--text-faint)', letterSpacing: '.02em' }}>
                       {['M','T','W','T','F'][day.getDay() - 1]}
@@ -516,7 +515,6 @@ export default function ProjectPage({ params }: { params: { project: string } })
                   ))}
                   </tr>
                   <tr>
-                    <th style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, borderRight: '1px solid var(--border-sub)', borderBottom: '1px solid var(--border-sub)' }} />
                     {days.map((day, i) => {
                       const off      = isOffDay(day, holidays)
                       const isTd     = i === todayI
