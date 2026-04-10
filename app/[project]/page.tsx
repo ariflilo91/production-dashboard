@@ -11,6 +11,7 @@ import {
 } from '@/lib/supabase'
 import {
   buildDays, buildMonthHeaders, workDayIndex,
+    dayDiff, // <--- Add this here
   addDays, parseDate, formatDate, formatDateInput,
   isOffDay, getStageFull, DEPT_STAGES, STATUS_LABELS,
 } from '@/lib/utils'
