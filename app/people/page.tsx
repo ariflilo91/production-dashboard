@@ -7,7 +7,7 @@ import {
   getProjects, getTeamMembers, getTasksForMember, upsertTeamMember, deleteTeamMember,
   Project, TeamMember, Task,
 } from '@/lib/supabase'
-import { buildDays, dayDiff, addDays, parseDate, formatDate, formatDateInput, isOffDay, getStageFull, STATUS_LABELS } from '@/lib/utils'
+import { buildDays, buildMonthHeaders, workDayIndex, addDays, parseDate, formatDate, formatDateInput, isOffDay, getStageFull, STATUS_LABELS } from '@/lib/utils'
 
 const COL_W = 28
 const DEPT_ORDER = ['Management','Pre-production','Production','Post-production']
