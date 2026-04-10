@@ -500,7 +500,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
               <table style={{ borderCollapse: 'collapse', fontSize: 11, minWidth: '100%' }}>
                 <thead>
                   <tr>
-                    <th rowSpan={2} style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '1px solid #222220', borderBottom: '1px solid #222220' }}>
+                    <th rowSpan={3} style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.06em', borderRight: '1px solid var(--border-sub)', borderBottom: '1px solid var(--border-sub)' }}>
                       Department
                     </th>
                     {months.map((m, i) => (
@@ -518,6 +518,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                   ))}
                   </tr>
                   <tr>
+                    <th style={{ position: 'sticky', left: 0, zIndex: 8, background: 'var(--bg-surface)', minWidth: 150, maxWidth: 150, borderRight: '1px solid var(--border-sub)', borderBottom: '1px solid var(--border-sub)' }} />
                     {days.map((day, i) => {
                       const off      = isOffDay(day, holidays)
                       const isTd     = i === todayI
@@ -618,7 +619,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
                         return lanes.map((laneEps, laneIdx) => (
                           <tr key={`${dept.id}-lane-${laneIdx}`} style={{ borderBottom: '1px solid #141412' }}>
                             {laneIdx === 0 && (
-                              <td rowSpan={lanes.length} style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-surface)', padding: '0 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'middle', borderRight: '1px solid #222220' }}>
+                              <td rowSpan={lanes.length} style={{ position: 'sticky', left: 0, zIndex: 4, background: 'var(--bg-card)', padding: '0 10px', minWidth: 150, maxWidth: 150, verticalAlign: 'middle', borderRight: '2px solid var(--border-sub)', boxShadow: '2px 0 6px rgba(0,0,0,0.2)' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', lineHeight: 1.3 }}>
                                   {dept.full_name}
                                 </div>

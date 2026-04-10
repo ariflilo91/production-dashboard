@@ -160,7 +160,7 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
               <table style={{ borderCollapse:'collapse', fontSize:11, minWidth:'100%' }}>
                 <thead>
                   <tr>
-                    <th style={{ position:'sticky', left:0, zIndex:8, background:'var(--bg-surface)', minWidth:200, maxWidth:200, padding:'7px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.06em', borderRight:'2px solid var(--border-sub)', borderBottom:'1px solid var(--border-sub)', boxShadow:'2px 0 4px rgba(0,0,0,0.15)' }} rowSpan={2}>
+                    <th style={{ position:'sticky', left:0, zIndex:8, background:'var(--bg-surface)', minWidth:200, maxWidth:200, padding:'7px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:'var(--text-dim)', textTransform:'uppercase', letterSpacing:'.06em', borderRight:'2px solid var(--border-sub)', borderBottom:'1px solid var(--border-sub)', boxShadow:'2px 0 4px rgba(0,0,0,0.15)' }} rowSpan={3}>
                       Task
                     </th>
                     {months.map((m,i) => (
@@ -170,6 +170,7 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
                     ))}
                   </tr>
                   <tr>
+                    <th style={{ position:'sticky', left:0, zIndex:8, background:'var(--bg-surface)', minWidth:200, maxWidth:200, borderRight:'1px solid var(--border-sub)', borderBottom:'1px solid var(--border-sub)' }} />
                     {days.map((day,i) => {
                       const isTd = i===todayI
                       return (
@@ -202,7 +203,7 @@ function PersonGantt({ member, projects, onClose }: { member: TeamMember; projec
 
                         return (
                           <tr key={task.id} style={{ borderBottom:'1px solid var(--border-dim)' }}>
-                            <td style={{ position:'sticky', left:0, zIndex:3, background:'var(--bg-card)', padding:'0 12px', minWidth:200, maxWidth:200, height:36, verticalAlign:'middle', borderRight:'2px solid var(--border-sub)', boxShadow:'2px 0 4px rgba(0,0,0,0.15)' }}>
+                            <td style={{ position:'sticky', left:0, zIndex:4, background:'var(--bg-card)', padding:'0 12px', minWidth:200, maxWidth:200, height:36, verticalAlign:'middle', borderRight:'2px solid var(--border-sub)', boxShadow:'2px 0 6px rgba(0,0,0,0.2)' }}>
                               <div style={{ fontSize:11, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                                 {task.department?.full_name}
                               </div>
