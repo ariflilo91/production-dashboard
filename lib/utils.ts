@@ -61,14 +61,9 @@ export function formatDateInput(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-// Legacy — kept for compatibility but not used for bar positioning
 export function dayDiff(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86400000)
 }
-
-// ─── Working day array (Mon-Fri only) ─────────────────
-// This is the SOURCE OF TRUTH for all Gantt positioning.
-// Every bar start/end must be calculated as an index into this array.
 
 export function buildDays(start: Date, end: Date): Date[] {
   const days: Date[] = []
@@ -82,8 +77,6 @@ export function buildDays(start: Date, end: Date): Date[] {
   return days
 }
 
-// Find the working-day index for a calendar date.
-// Returns the index of that date in the days[] array, or nearest future working day.
 export function workDayIndex(days: Date[], target: Date): number {
   const tStr = formatDateInput(target)
   for (let i = 0; i < days.length; i++) {
@@ -91,8 +84,6 @@ export function workDayIndex(days: Date[], target: Date): number {
   }
   return days.length - 1
 }
-
-// ─── Holiday helpers ──────────────────────────────────
 
 export function isOffDay(date: Date, holidays: Holiday[]): { off: boolean; type?: string; name?: string } {
   const dow = date.getDay()
@@ -114,9 +105,6 @@ export function workdaysRemaining(endDate: Date, today: Date, holidays: Holiday[
   return { val: count, late: false }
 }
 
-// ─── Gantt header builders ────────────────────────────
-
-// Month headers — group consecutive working days by month
 export function buildMonthHeaders(days: Date[]): { label: string; count: number }[] {
   const groups: { label: string; count: number }[] = []
   days.forEach(day => {
@@ -130,21 +118,17 @@ export function buildMonthHeaders(days: Date[]): { label: string; count: number 
   return groups
 }
 
-// Week headers — group by Mon-anchored week, label W1-W5 per month
-// The week label is based on which week of the month the Monday belongs to.
-// Cross-month weeks keep the Monday's week number (so W5 Mar stays W5 even if it includes Apr days).
-export function buildWeekHeaders(days: Date[]): { label: string; count: number }[] {
+// FIX: Explicitly typed 'groups' with 'key' property
+export function buildWeekHeaders(days: Date[]): { label: string; count: number; key: string }[] {
   const groups: { label: string; count: number; key: string }[] = []
 
   days.forEach(day => {
-    // Find this day's Monday
-    const dow = day.getDay() // 0=Sun,1=Mon...6=Sat
+    const dow = day.getDay()
     const monday = new Date(day)
     monday.setDate(day.getDate() - (dow === 0 ? 6 : dow - 1))
     monday.setHours(0, 0, 0, 0)
 
     const key = formatDateInput(monday)
-    // Week number = which week of the month does this Monday fall in?
     const weekNum = Math.ceil(monday.getDate() / 7)
     const label = `W${weekNum}`
 
