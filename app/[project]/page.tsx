@@ -359,7 +359,7 @@ export default function ProjectPage({ params }: { params: { project: string } })
 
   const days    = buildDays(viewStart, viewEnd)
   const total   = days.length
-  const todayI  = dayDiff(viewStart, today)
+  const todayI  = workDayIndex(days, today)
   const sidebarProjects = allProjects.map(p => ({ id: p.id, name: p.name, color: p.color }))
 
   const filteredTasks = tasks.filter(t => {
